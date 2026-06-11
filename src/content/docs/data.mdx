@@ -1,0 +1,79 @@
+---
+title: Recording data right
+description: The itemDef-first rule, why structured events beat notes, and a worked import example.
+---
+
+## The itemDef-first flow
+
+When you ask the agent to record or import health data, it should always
+look the data up in the HDS data model first, then write events matching
+the canonical shape:
+
+```
+1. search_items("basal body temperature")
+     → top match: body-temperature-basal
+2. get_item("body-temperature-basal")
+     → streamId: "body-temperature-basal"
+       eventType: "temperature/c"
+       type: "number"
+3. import_batch([
+     { streamIds: ["body-temperature-basal"],
+       type: "temperature/c",
+       content: 36.6,
+       time: <epoch-seconds> },
+     ...
+   ])
+```
+
+Skipping this lookup and inventing stream and type names breaks the
+cross-system mapping (HealthKit / FHIR / SNOMED CT / ICF) that HDS items
+carry. The MCP's tool descriptions explicitly tell the agent to call
+`search_items` first; if no item matches, the agent should ask you before
+inventing a type.
+
+## New datasets: structure first, notes last
+
+When you bring a dataset that HDS has no item for yet — an export from an
+app we don't bridge, a spreadsheet of measurements, a tracker's CSV — the
+agent **must not dump it into `note/txt` events** if the information can
+be structured. Notes are opaque text: they can't be charted, converted,
+compared across sources, or mapped to HealthKit/FHIR/SNOMED. A note is a
+dead end; a structured event keeps its meaning everywhere.
+
+The expected investigation order:
+
+1. **Search the item catalogue** (`search_items`, or browse
+   [model-browser.datasafe.dev](https://model-browser.datasafe.dev)) —
+   most common observations already have a canonical item.
+2. **Check the event-type catalogue** (`pack.json` `eventTypes`) for a
+   fitting `category/unit` type (e.g. `mass/kg`, `temperature/c`,
+   `count/generic`) when no full item matches.
+3. **Ask before inventing.** If neither matches, the agent should surface
+   the gap to you — and you're welcome to
+   [open an issue](https://github.com/healthdatasafe/site-agents/issues)
+   so the data model team can add a proper item.
+4. **Only genuinely free-form content** (a diary entry, a doctor's letter
+   text) belongs in `note/txt`.
+
+If your agent reaches for notes as the easy way out, push back — and
+expect it to push back on you, too.
+
+## Worked pilot — fertility-charts folder → HDS
+
+You drop a folder of Excel sheets and scanned paper from fertility charting
+into your machine and ask your agent to upload it to a demo HDS account.
+
+> *"Sign me in to HDS demo, then process the folder at `~/fertility-2026/`
+> and import every reading."*
+
+The agent:
+
+1. Calls `hds.connect()` → you sign in to demo.
+2. Reads the folder via its filesystem tool.
+3. Uses vision to OCR scanned BBT sheets; uses code interpreter to parse the
+   Excel.
+4. For each distinct data type (BBT, cervical fluid, LH test, …) calls
+   `hds.search_items(...)` then `hds.get_item(...)`.
+5. Calls `hds.import_batch(...)` with the canonical `streamIds` + `eventType`
+   from the item spec.
+6. Confirms with `hds.list_streams()` / `hds.get_events(...)`.

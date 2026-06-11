@@ -1,0 +1,31 @@
+{
+  "name": "site-agents",
+  "type": "module",
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "setup": "bash scripts/setup.sh",
+    "deploy": "bash scripts/deploy.sh",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.38.1",
+    "astro": "^6.0.1",
+    "sharp": "^0.34.2"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.4",
+    "eslint-plugin-astro": "^1.7.0",
+    "globals": "^17.6.0",
+    "neostandard": "^0.13.0",
+    "typescript-eslint": "^8.61.0"
+  }
+}

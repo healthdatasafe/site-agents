@@ -1,0 +1,86 @@
+---
+title: Install the MCP server
+description: Requirements and client configuration for the HDS MCP server (hds-mcp-js) — Claude Desktop and other MCP-capable clients.
+---
+
+## What you need
+
+1. A computer (macOS or Windows).
+2. **Claude Desktop** (or another MCP-capable client) installed.
+3. **Node.js 20 or newer.** If you don't already have it, grab the official
+   installer from [nodejs.org](https://nodejs.org) — click the green **LTS**
+   button, download the `.pkg` (macOS) or `.msi` (Windows), double-click,
+   accept the defaults. No terminal needed. Skip `nvm`, Homebrew, or any
+   other "version manager" — they're for developers who already have one.
+4. A browser (any modern one) for the sign-in step.
+
+:::caution[Prerequisite for file flows]
+For scenarios like "process a folder of documents", your agent client must
+also provide **filesystem access** and **vision / OCR**. The HDS MCP does not
+ship file I/O or OCR — those are delegated to the client's other tools. Check
+your client's docs for how to enable filesystem access; in Claude Desktop it
+ships built-in but is off by default.
+:::
+
+## Install
+
+The server installs straight from GitHub — no cloning, no build step on your
+side. (The npm-registry name `hds-mcp` is not claimed yet; `npx` fetches the
+package from GitHub instead.)
+
+### 1. Open your client's MCP config
+
+**Claude Desktop:**
+- macOS: menu bar → Claude → Settings → Developer → Edit Config.
+- Windows: ☰ menu → Settings → Developer → Edit Config.
+
+### 2. Paste the server entry
+
+```json
+{
+  "mcpServers": {
+    "hds": {
+      "command": "npx",
+      "args": ["-y", "github:healthdatasafe/hds-mcp-js"]
+    }
+  }
+}
+```
+
+**Restart the client fully** (⌘Q on macOS, then reopen) so it picks up the
+new server. The very first launch can take up to a minute while `npx`
+downloads and builds the server; later launches reuse the cache.
+
+:::note[Developers]
+Working from a source clone? `git clone
+https://github.com/healthdatasafe/hds-mcp-js.git && cd hds-mcp-js && npm
+install` (the install builds `dist/`), then point the entry at the build:
+`{ "command": "node", "args": ["/absolute/path/to/hds-mcp-js/dist/index.js"] }`
+— re-run `npm run build` after editing `src/`.
+:::
+
+### 3. Check it works
+
+After the restart, Claude Desktop shows a tools indicator (a small 🔌 or
+hammer icon near the chat input) listing the `hds` server. If it's there,
+you're done installing. If not, see below.
+
+## Troubleshooting
+
+**The client doesn't list the `hds` server / "no tool named connect".**
+- Did you fully quit the client (⌘Q on macOS) before reopening? A window
+  close is not enough — the MCP only loads on a fresh launch.
+- Is `node --version` ≥ 20? `npx` needs Node (see [What you need](#what-you-need)).
+- Give the very first launch up to a minute — `npx` is downloading and
+  building the server.
+- Check the config file is valid JSON (a trailing comma is the usual culprit).
+
+**The browser tab never opens during connect.**
+- Check the client's tool-permission popup didn't get dismissed.
+- Your default browser must be a real browser (not a PDF reader, etc.).
+
+**"auth timed out — please re-run hds.connect"**
+- You took longer than 5 minutes to complete the sign-in. Re-run it.
+
+Anything else — [open an issue](https://github.com/healthdatasafe/site-agents/issues)
+(see [Feedback & issues](/feedback/)).

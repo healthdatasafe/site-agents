@@ -1,0 +1,55 @@
+---
+title: HDS for AI agents
+description: Connect AI agents (Claude Desktop, ChatGPT desktop, …) to Health Data Safe. Minimal bootstrap prompt, MCP install, OAuth, permissions, and data-recording rules.
+---
+
+This site is for **users with AI agent clients** (Claude Desktop, ChatGPT
+desktop, Cursor, …) who want their agent to read and write data into their
+Health Data Safe (HDS) account.
+
+If you are an AI agent reading this page in real time, fetch
+[`/llms-full.txt`](/llms-full.txt) — the dense, machine-readable
+reference.
+
+## Just copy-paste this
+
+Copy the block below (hover it and click the copy icon), paste it into a
+chat with your AI assistant (for example Claude Desktop), and let it guide
+you from there — one step at a time.
+
+```text
+Fetch https://agents.datasafe.dev/bootstrap.txt and follow its
+instructions: act as my patient guide for Health Data Safe (HDS),
+one step at a time.
+```
+
+That's it. The instructions your assistant fetches are always up to date,
+so this short prompt never goes stale.
+
+:::note[My assistant cannot fetch URLs]
+Some clients have no web access. In that case open
+[`bootstrap.txt`](/bootstrap.txt) yourself, copy its full contents, and
+paste that into the chat instead.
+:::
+
+## What this enables
+
+Once set up, you can ask your agent things like:
+
+- *"Connect me to a demo HDS account and tell me what data I already have there."*
+- *"List all streams in my account and group them by topic."*
+- *"Get the last 30 days of events from the body stream and summarize them."*
+- *"Log my weight as 72 kg now."*
+- *"Here's a folder of Excel + scanned paper fertility charts — import every reading."*
+
+The HDS MCP server exposes seven essential tools today: `connect`,
+`list_streams`, `get_events`, `search_items`, `get_item`, `create_event`,
+`import_batch`.
+
+## Where next
+
+- [Install the MCP server](/install/) — requirements and client configuration.
+- [Connect & permissions](/connect/) — the OAuth flow, access levels, production guardrails.
+- [Recording data right](/data/) — the itemDef-first rule and why notes are a last resort.
+- [Building apps](/build/) — when your goal is an app or script, not a chat.
+- [Feedback & issues](/feedback/) — tell us where it hurt.

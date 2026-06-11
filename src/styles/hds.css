@@ -1,0 +1,51 @@
+/* HDS theme for Starlight — Blue accent (doctor palette) */
+/* Only customize accent colors and fonts. Let Starlight handle light/dark gray scale. */
+
+:root {
+  --sl-color-accent-low: #dbeafe;
+  --sl-color-accent: #1C64F2;
+  --sl-color-accent-high: #172554;
+  --sl-font: 'Inter', sans-serif;
+  --sl-font-system: 'Inter', sans-serif;
+}
+
+/* Lighter title color in dark mode for readability */
+:root[data-theme='dark'] .site-title span {
+  color: #93bbfc;
+}
+
+/* Bigger logo */
+header .site-title img {
+  height: 3rem;
+}
+
+/* Don't shrink logo+title, push search right */
+header .site-title {
+  flex-shrink: 0;
+}
+header site-search {
+  margin-left: auto;
+}
+
+/* Tagline below title text */
+header .site-title span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+header .site-title span::after {
+  content: 'Own your data, share for good.';
+  font-size: 0.55em;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* Replace heart icon with HDS favicon */
+header a[href="https://www.healthdatasafe.org"] svg {
+  display: none;
+}
+header a[href="https://www.healthdatasafe.org"] {
+  background: url('/hds-icon.svg') center/contain no-repeat;
+  width: 1.25rem;
+  height: 1.25rem;
+}

@@ -1,0 +1,1040 @@
+# HDS — llms-full.txt
+
+Single-page, agent-readable summary of Health Data Safe (HDS): what it is,
+how its data model works, and the three concrete ways to act on a user's
+account (MCP server, `hds-lib` JavaScript library, raw REST). If you are an
+AI agent helping a user with HDS, read this once at session start.
+
+Canonical URL: https://agents.datasafe.dev/llms-full.txt
+(moved 2026-06-11 from docs.datasafe.dev/developers/llms-full.txt — update
+your pointers; the old URL serves a redirect note)
+Last updated: 2026-06-11 (moved to agents.datasafe.dev; added: development
+permissions guidance, structured-data-over-notes rule, feedback channel)
+
+Feedback: if you or your user hit a problem with these instructions, file
+a GitHub issue at https://github.com/healthdatasafe/site-agents/issues —
+agents may draft the issue text for the user.
+
+---
+
+## 1. What HDS is
+
+Health Data Safe is an open infrastructure for personal health data, built
+on top of Pryv (https://pryv.com). A user owns their HDS account, holds the
+authoritative token to it, and grants per-app access via OAuth. Apps and
+bridges read/write structured events into the user's account; viewer apps
+compose those events across sources.
+
+| Pointer                          | URL                                                   |
+|----------------------------------|-------------------------------------------------------|
+| Site                             | https://datasafe.dev                                  |
+| Foundation                       | https://www.healthdatasafe.org                        |
+| Agents site (this page's home)   | https://agents.datasafe.dev                           |
+| Developer docs                   | https://docs.datasafe.dev/developers/                 |
+| Feedback (GitHub issues)         | https://github.com/healthdatasafe/site-agents/issues  |
+| Data model (machine-readable)    | https://model.datasafe.dev/pack.json                  |
+| Data model browser (human)       | https://model-browser.datasafe.dev                    |
+| Style/theme                      | https://style.datasafe.dev                            |
+| GitHub org                       | https://github.com/healthdatasafe                     |
+
+### Environments
+
+| Alias | service-info URL                            | API host pattern   |
+|-------|---------------------------------------------|--------------------|
+| demo  | https://demo.datasafe.dev/reg/service/info  | demo.datasafe.dev/{username}/ |
+| prod  | https://reg.api.datasafe.dev/service/info   | *.api.datasafe.dev |
+
+Default for any agent flow is **demo**. Production writes are gated off in
+the MCP server until the operator opts in.
+
+---
+
+## 2. The data model — events, streams, items
+
+Three primitives:
+
+- **Event** — a single data point: `{ id, time, duration?, streamIds[], type, content, tags? }`.
+  `time` is a Unix timestamp (seconds, float). `type` is a Pryv string in the
+  form `category/unit` (e.g. `mass/kg`, `temperature/c`, `note/txt`).
+  `content` shape depends on `type`.
+- **Stream** — a container for events. Streams form a tree (`parentId`).
+  A user organises events by attaching them to one or more streams.
+- **Item** (HDS-specific) — the canonical, human-meaningful unit of health
+  observation. An item declares the canonical `streamId` + `eventType` +
+  content shape for one kind of observation (body-weight,
+  basal-body-temperature, cervical-fluid-observation, …). Items are the
+  cross-system layer — they map to HealthKit, FHIR, SNOMED CT, ICF, PROMIS,
+  EQ-5D anchors so the same observation has a consistent meaning across
+  apps and sources.
+
+### Catalogue size (as of 2026-06-10 — query pack.json for current numbers)
+
+~100 items, 12 top-level streams, 2 converters. `pack.eventTypes` is an
+object `{ types, extras }`: `types` is the full event-type catalogue
+(~380 entries — Pryv's standard types merged with HDS-specific ones;
+each entry: `{ description, type }` content schema), `extras` carries
+display metadata per type (localised name + unit symbol, e.g.
+`{ name: { en: "Grays" }, symbol: "Gy" }`).
+
+### Item categories
+
+One YAML file per category in `data-model/definitions/items/`:
+
+`activity`, `body`, `body-skin`, `body-vulva`, `family`, `fertility`,
+`function` (ICF/EQ-5D), `medication`, `nutrition`, `procedure`, `profile`,
+`symptom`, `treatment`, `wellbeing`.
+
+### Item pack — the machine-readable manifest
+
+The flattened, agent-ready bundle is published at
+https://model.datasafe.dev/pack.json. Top-level keys: `publicationDate,
+streams, items, eventTypes, datasources, conversions, converters,
+settings, appStreams`.
+
+`items` is an object keyed by item key. Two real entries, illustrating the
+two shape variants:
+
+**Simple — has a base `eventType`** (`pack.items["body-temperature-basal"]`):
+
+```json
+{
+  "version": "v1",
+  "label": { "en": "Basal Body Temperature", "fr": "Température basale" },
+  "description": { "en": "Resting body temperature taken on waking…" },
+  "streamId": "body-temperature-basal",
+  "eventType": "temperature/c",
+  "type": "number",
+  "repeatable": "unlimited"
+}
+```
+
+**Variations-only — no base `eventType`** (`pack.items["body-weight"]`):
+
+```json
+{
+  "label": { "en": "Body weight" },
+  "streamId": "body-weight",
+  "type": "number",
+  "variations": {
+    "eventType": {
+      "label": { "en": "Unit" },
+      "options": [
+        { "value": "mass/kg", "label": { "en": "Kg" } },
+        { "value": "mass/lb", "label": { "en": "Lbs" } }
+      ]
+    }
+  },
+  "repeatable": "unlimited"
+}
+```
+
+When `variations.eventType` is present and there is **no top-level
+`eventType`**, the agent must pick a value from `options[]`. Default to the
+first option (metric — `mass/kg` for weight, `length/m` for height) unless
+the user explicitly asked for imperial. **If the user's input is
+unit-ambiguous** ("log my weight as 158") **ask before defaulting** —
+silently picking kg-vs-lb is a real data-quality risk.
+
+Field meanings:
+
+- `streamId` — canonical Pryv stream for events of this item.
+- `eventType` / `variations.eventType` — the Pryv `category/unit` string.
+- `type` — content schema family (`number`, `string`, `object`, `null`, …).
+  ⚠ Same word, two meanings: an **item's** `type` is this content-shape
+  family; an **event's** `type` is the Pryv `category/unit` string (the
+  item's `eventType`). When building an event, `event.type` ←
+  `item.eventType`, never `item.type`.
+- `repeatable` — `unlimited` for time-series; some items are one-shot.
+- `hooks` (optional) — semantic anchors mapping the value to ICF / EQ-5D /
+  PROMIS / HealthKit scales for cross-system compatibility.
+- `deprecated: true` — readable but should not be surfaced for new writes.
+
+### Accesses & permissions
+
+Every API call runs under an **access** (the token in the apiEndpoint).
+What an access can touch is a list of per-stream **permissions**, each
+with a level:
+
+- `read` — read events in the stream.
+- `contribute` — read + create/modify events (what data-writing flows need).
+- `manage` — contribute + create/modify sub-streams.
+
+Permissions are **stream-scoped and inherit down the stream tree**;
+`streamId: "*"` means the whole account. Access kinds: `personal` (the
+user's own full-account token), `app` (what OAuth gives an app — scoped
+to the permissions the user approved on the consent screen), `shared`
+(links the user hands out). A `forbidden` (HTTP 403) error on a write
+usually means the access level is too low (e.g. `read` where
+`contribute` was needed) — re-auth with the right level instead of
+retrying. The MCP's `connect` requests `streamId: "*"` ("All HDS data")
+at the chosen level (`contribute` by default); per-stream scoping is
+roadmap. Apps built with `hds-lib` should request only the streams they
+need (see §5b). Reference:
+https://pryv.github.io/reference/#access
+
+### App stream convention
+
+Apps and bridges that produce source-contextual data (notes, chat, sync
+metadata) use an "app stream" pattern to separate app-specific content
+from universal HDS data:
+
+```
+{app-id}/                        BASE — root stream for the bridge/app
+├── {app-id}-raw/                RAW — synced source data
+│   ├── {app-id}-raw-new
+│   ├── {app-id}-raw-error
+│   └── {app-id}-raw-converted
+└── {app-id}-app/                APP — app-contextual content
+    └── {app-id}-app-notes       free text notes from this source
+```
+
+The access token created for each app declares its app stream in
+`clientData.appStreamId`, so viewer apps can group source-contextual notes
+by the originating app. App streams use standard event types
+(`note/txt`, `message/...`) — no custom HDS items needed for app-contextual
+content.
+
+---
+
+## 3. The itemDef-first rule (applies to MCP, `hds-lib`, and REST)
+
+Whenever the user asks the agent to record or import health data, the
+order is:
+
+```
+1. search for the canonical HDS item
+2. read the item's spec
+3. write events using the item's streamId + eventType (+ unit, on variations)
+```
+
+Skipping the lookup and inventing `streamIds` + `type` strings breaks the
+cross-system mapping that items carry. **Always look up first; on miss, ask
+the user before inventing.**
+
+**Structured data over notes — push back on `note/txt`.** When the user
+brings a dataset HDS has no item for (an unbridged app's export, a
+spreadsheet, a tracker CSV), do NOT dump it into `note/txt` events if the
+information can be structured. Notes are opaque: they cannot be charted,
+converted, compared across sources, or mapped to HealthKit/FHIR/SNOMED CT.
+Investigation order: (1) `search_items` / pack.items for an existing item;
+(2) the event-type catalogue (`pack.eventTypes`) for a fitting
+`category/unit` type; (3) surface the gap to the user and recommend filing
+an issue at https://github.com/healthdatasafe/site-agents/issues so the
+data model can grow a proper item; (4) only genuinely free-form content (a
+diary entry, a letter's text) belongs in `note/txt`. Push back even if the
+user asks for notes as the easy way out — explain what they would lose.
+
+How each interface implements it:
+
+| Interface | Lookup                                          | Spec read                              | Write                                                  |
+|-----------|-------------------------------------------------|----------------------------------------|--------------------------------------------------------|
+| MCP       | `search_items(query)`                           | `get_item(key)`                        | `create_event` / `import_batch`                        |
+| hds-lib   | `getHDSModel().itemsDefs.forKey(key)`            | `item.eventTypes`, `item.label`, …     | `connection.api([{method:'events.create', params:…}])` |
+| REST      | `GET https://model.datasafe.dev/pack.json`      | inspect `pack.items[key]`              | `POST /events` (see §6)                                 |
+
+For variations-only items in code, prefer `item.eventTemplate()` — it
+returns `{ streamIds: [canonical], type: eventTypes[0] }`, picking the
+first variation automatically. Override only when the user requested a
+specific unit.
+
+Discovering the item **key** without the MCP: browse
+https://model-browser.datasafe.dev (human) or scan the keys of
+`pack.items` (machine) — keys are kebab-case and descriptive
+(`body-weight`, `body-temperature-basal`, `cervical-fluid-observation`).
+
+---
+
+## 4. How to use HDS — pick one of three
+
+**Agents: scope the project before installing anything.** The MCP server
+is only the right surface when the *agent itself* must read/write the
+user's HDS data interactively (process a folder, log values, summarize
+streams — Flow "process my data"). If the user is **building an app**
+(web page, Node program, bridge), the deliverable's code talks to HDS via
+`hds-lib` (§4b) and **no MCP install is needed** — don't add one. REST
+(§4c/§6) is the fallback for environments where neither fits. When the
+user's goal is unclear, ask before installing.
+
+### 4a. The MCP server (AI agent clients: Claude Desktop, ChatGPT, …)
+
+Repo: https://github.com/healthdatasafe/hds-mcp-js · Transport: stdio ·
+Auth: Pryv poll-mode OAuth (no callback URL needed).
+
+**Install in Claude Desktop.** Installs straight from GitHub via `npx` —
+no clone needed (the npm-registry name `hds-mcp` is not claimed yet):
+
+```json
+{
+  "mcpServers": {
+    "hds": {
+      "command": "npx",
+      "args": ["-y", "github:healthdatasafe/hds-mcp-js"]
+    }
+  }
+}
+```
+
+Restart the client fully (⌘Q on macOS) so it picks up the new server. The
+first launch can take up to a minute while `npx` downloads and builds;
+later launches reuse the cache. Developers working from a source clone can
+point at the built output instead (`npm install` builds it):
+`{ "command": "node", "args": ["/absolute/path/to/hds-mcp-js/dist/index.js"] }`
+— re-run `npm run build` after editing `src/`.
+
+**Tool catalogue (v0.1.0, all tier=essential):** `connect`,
+`list_streams`, `get_events`, `search_items`, `get_item`, `create_event`,
+`import_batch`. (Naming: tool names are these bare strings; prose like
+`hds.connect` just prefixes the server alias from the client config —
+`"hds"` in the snippet above.) Defaults: `connect` targets the `demo`
+host, requests **all streams** (`streamId: "*"`) at `contribute` level
+(read + write events — covers the pilot). Pass `host: "prod"` for
+production; `level: "read"` for a read-only session; per-stream scoping
+is not yet supported. `create_event` and `import_batch` refuse on
+production unless the session was opened with
+`connect({ host: "prod", enableWrites: true })` — pass `enableWrites`
+ONLY when the user explicitly asked to write to their real production
+account, never on your own initiative.
+
+Full per-tool descriptions, error shapes, itemDef-first priming rules,
+and extension guide live in
+[`hds-mcp-js/AGENTS.md`](https://github.com/healthdatasafe/hds-mcp-js/blob/main/AGENTS.md).
+The canonical tool descriptions an agent sees at runtime are in
+[`hds-mcp-js/src/server.ts`](https://github.com/healthdatasafe/hds-mcp-js/blob/main/src/server.ts).
+
+### 4b. `hds-lib` — build a browser app or Node program
+
+Always use [`hds-lib`](https://github.com/healthdatasafe/hds-lib-js) (not
+the raw `pryv` SDK) when the deliverable is anything you're going to
+build — a single HTML page, a React app, a Node script, a CLI. `hds-lib`
+bundles a patched copy of Pryv internally and **re-exports it** as
+`HDSLib.pryv` (and `HDSLib.cmc`), so anything you would have done with raw
+`pryv` is reachable through the same global. There is no scenario in an
+HDS app where loading raw `pryv` in addition to `hds-lib` is correct —
+loading both gives you two copies of the SDK in the same page.
+
+`hds-lib` wraps Pryv with: the HDS data-model singleton (`initHDSModel`,
+`getHDSModel`), item-by-key lookup, `HDSService` (service-info + auth
+helpers), app-template scaffolding for common patient/bridge/viewer roles,
+localisation, settings, preferred-display, reminders, converters.
+
+**Install — always via a bundler, never via CDN script tag.**
+
+`hds-lib` is published as a git-URL npm package:
+
+```bash
+npm install git+https://github.com/healthdatasafe/hds-lib-js.git
+```
+
+Then `import` it from your bundled app:
+
+```js
+import * as HDSLib from 'hds-lib';
+```
+
+Use any bundler (Vite, Astro, Next, Webpack). For a from-scratch page, the
+fastest path is Vite:
+
+```bash
+npm create vite@latest my-hds-app -- --template vanilla
+cd my-hds-app
+npm install
+npm install git+https://github.com/healthdatasafe/hds-lib-js.git
+```
+
+A built dev server (e.g. `npm run dev` → http://localhost:5173) is what
+you'll front with `backloop.dev` (§4b-i) to get the HTTPS origin Pryv OAuth
+requires.
+
+> **Do not** load `hds-lib.js` from a CDN inside a plain HTML file
+> (`file://` or `http://localhost`). That recipe looks tempting but fails
+> the moment OAuth runs — Pryv refuses non-HTTPS origins, and the gh-pages
+> bundle (`https://healthdatasafe.github.io/hds-lib-js/hds-lib.js`) is
+> there for the project's own demo pages, not as a supported consumer
+> entry point. Always install + bundle.
+
+**Canonical write-shape pattern** — what every agent should reach for:
+
+```js
+const item = HDSLib.getHDSModel().itemsDefs.forKey('body-weight');
+const tmpl = item.eventTemplate();          // { streamIds, type }
+await connection.api([{
+  method: 'events.create',
+  params: { ...tmpl, content: 72, time: epochSeconds }
+}]);
+```
+
+`HDSItemDef` exposes more than `eventTemplate()` — `eventTypes`, `label`,
+`description`, `repeatable`, `isDeprecated`, raw `data`, etc.
+
+**Other high-value helpers** (full enumeration in the lib's AGENTS.md):
+
+| Helper                                            | What it does                                                                                 |
+|---------------------------------------------------|----------------------------------------------------------------------------------------------|
+| `eventToShortText(event)`                         | Single shared event formatter — display events as `"60 Kg"`, `"Aspirin · 100mg"`, etc.       |
+| `MonitorScope`                                    | Progressive event loading + WebSocket subscribe — use for live timelines / dashboards.       |
+| `computeReminders(item, source)`                  | "What's due now" computation for an item.                                                    |
+| `HDSSettings`                                     | Per-user settings (locales, theme, timezone, date format, unit system).                       |
+| `getPreferredInput(item, ctx)` / `getPreferredDisplay(event, ctx)` | Unit-system-aware input + display preferences.                                     |
+| `appTemplates.*`                                  | `AppManagingAccount` / `AppClientAccount` / `Collector` / `CollectorClient` — the legal/consent shape every HDS app uses. |
+
+If you need a low-level Pryv API the HDS layer doesn't wrap, reach it
+via `HDSLib.pryv.*` — never load a second `<script>` tag.
+
+**Full reference** — flat public-API index, conventions, gotchas, and
+read-order for the docs site:
+[`hds-lib-js/AGENTS.md`](https://github.com/healthdatasafe/hds-lib-js/blob/main/AGENTS.md).
+Generated API docs: <https://healthdatasafe.github.io/hds-lib-js/>.
+
+### 4b-companions. Companion libraries (build on top of `hds-lib`)
+
+`hds-lib` is the foundation. When the app needs more (form UIs, specialised
+visualisations, a backend bridge), reach for one of these. All three are
+git-URL npm packages (none are on the npm registry) and expect a bundler
+or Node project — **no CDN script tags**.
+
+| Library                                                                                | Use when                                                                                  | Install                                                                          | Agent docs                                                                                                  |
+|----------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| **[`hds-forms-js`](https://github.com/healthdatasafe/hds-forms-js)**                   | Building a React UI that captures canonical HDS events. Key exports: `<HDSFormField>`, `<HDSFormSection>`, `<EntryList>`, `schemaFor`, `prefillFromEvents`, `matchEventsToItemDefs`, `formDataToEventBatch`, `<DatasetSearch>`, `<ItemSearchPicker>`. | `git+https://github.com/healthdatasafe/hds-forms-js.git`                          | [AGENTS.md](https://github.com/healthdatasafe/hds-forms-js/blob/main/AGENTS.md)                              |
+| **[`hds-feminine-cycle-ui`](https://github.com/healthdatasafe/hds-feminine-cycle-ui)** | Showing cervical-fluid / cycle-tracking events as FEMM / Billings / Creighton / Mira chart cells. Key exports: `<RepresentationCell>`, `<CervixPositionMarker>`, `composeCellInput`, `detectFertilityWindow`, `femmSpec` / `billingsSpec` / `creightonSpec` / `miraSpec`. Peer-dep: `react@^19`. | `git+https://github.com/healthdatasafe/hds-feminine-cycle-ui.git`                | [AGENTS.md](https://github.com/healthdatasafe/hds-feminine-cycle-ui/blob/main/AGENTS.md)                     |
+| **[`lib-bridge-js`](https://github.com/healthdatasafe/lib-bridge-js)**                 | Building a backend service that syncs a partner API into HDS. Key exports: `PluginBridge` base class, `startCluster`, `createBridgeApp`, `initBoiler`, `getLogger`. | `git+https://github.com/healthdatasafe/lib-bridge-js.git`                        | [AGENTS.md](https://github.com/healthdatasafe/lib-bridge-js/blob/main/AGENTS.md) + [INSTALL.md](https://github.com/healthdatasafe/lib-bridge-js/blob/main/INSTALL.md) |
+
+Reference bridges using `lib-bridge-js`: `bridge-chartneo`, `bridge-mira`,
+`bridge-femm`, `bridge-redcap`, `bridge-cycles-files` — look at any for
+the canonical service shape.
+
+### 4b-i. Developing with Claude Code (the IDE/CLI)
+
+If the user is iterating on an HDS app **inside Claude Code** (rather than
+asking a hosted agent over chat), the runtime has constraints that change
+what's possible:
+
+- Claude Code's sandbox runs commands and dev servers locally, but **only
+  localhost / 127.0.0.1 binds are reachable by the agent.** The agent can't
+  open or proxy to arbitrary remote hosts.
+- Opening the HTML file directly (`file://…`) does **not** work for the
+  Pryv sign-in flow: the OAuth handshake refuses plain `http://` and
+  `file://` origins. It needs **real HTTPS**.
+- That means a "just open the HTML file in your browser" recipe is a
+  dead-end inside Claude Code. The user has to run an actual dev server
+  *and* expose it over a publicly-trusted HTTPS hostname.
+
+The supported recipe:
+
+1. **Install Node.js first.** This is non-negotiable for Claude-Code-based
+   HDS development. Use the official LTS installer at https://nodejs.org —
+   green "LTS" button, no terminal needed. Skip `nvm` / Homebrew unless
+   already in use.
+2. **Run a dev server on localhost.** Any static server works for a single
+   HTML page (`npx serve`, `npx http-server`, Vite, Astro, …). Pick a port,
+   e.g. `4322`.
+3. **Use [backloop.dev](https://backloop.dev) to give it real HTTPS.**
+   backloop ships a wildcard public cert for `*.backloop.dev` and a tiny
+   gateway that proxies `https://<name>.backloop.dev:7854` → your
+   `localhost:<port>`. With it, your dev page at
+   `https://myapp.backloop.dev:7854/` is OAuth-compatible.
+   Docs + source: https://backloop.dev · https://github.com/perki/backloop.dev
+
+Minimal setup:
+
+```bash
+npm install -g backloop.dev               # one-time
+backloop.dev --config=gateway.json        # equals form — see note below
+```
+
+The flag form is `--config=<path>` with an `=` sign and no space. The
+CLI's `--help` does not advertise it; a bare positional arg is treated as
+a *directory to serve*, not as a JSON config path, so the space form
+silently fails.
+
+`gateway.json`:
+
+```json
+{
+  "port": 7854,
+  "hostnames": {
+    "myapp": { "proxy": "http://localhost:4322" }
+  }
+}
+```
+
+Then your HTML page from §5b loads at `https://myapp.backloop.dev:7854/`,
+which the Pryv auth flow accepts. The agent can also fetch this URL from
+inside Claude Code (it's locally proxied through the sandbox-friendly
+gateway).
+
+**Port collisions.** Port 7854 is the default but is **not** reserved.
+Another backloop instance, a parallel project, or any process already
+bound to 7854 will make the gateway fail to start. Pick a different port
+in that case — anything free (e.g. 7855, 7856, 8854). Change **two
+things together**:
+
+1. The `"port"` field in `gateway.json`.
+2. The `:7854` suffix in the URLs you use — e.g. `https://myapp.backloop.dev:7855/`.
+
+The `*.backloop.dev` DNS resolves the same regardless of port; the cert is
+also wildcard. Parallel workspaces should pre-pick distinct ports so they
+never have to debug "the OAuth popup goes to the wrong app" — that
+symptom is almost always a port shared across instances.
+
+If you skip Node.js and backloop, the only HDS path that still works in
+Claude Code is **MCP-driven** (§4a) — the agent uses `hds-mcp` to read and
+write the user's data without building a browser app at all.
+
+### 4c. REST API (other languages / debugging)
+
+Use REST directly only when you cannot reach for `hds-lib` (Python / Go /
+curl script, low-level debugging). For any JavaScript context, use
+`hds-lib` instead.
+
+The flow:
+
+```
+GET service-info  →  OAuth (gets apiEndpoint)  →  POST /events (with token)
+```
+
+**Step 1 — discover the API host:**
+
+```
+GET https://demo.datasafe.dev/reg/service/info
+```
+
+Returns (trimmed):
+
+```json
+{
+  "api": "https://demo.datasafe.dev/{username}/",
+  "access": "https://demo.datasafe.dev/reg/access/",
+  "assets": {
+    "hds-model": "https://model.datasafe.dev/pack.json"
+  }
+}
+```
+
+The `api` field is a URL template. Substitute the user's username (returned
+by OAuth) to get the API host, e.g. `https://demo.datasafe.dev/jane/`.
+
+**Step 2 — apiEndpoint:**
+
+OAuth is Pryv's **auth-request** flow: POST to the `access` URL from
+service-info (with `requestingAppId` + `requestedPermissions` in the
+body) → response `status: "NEED_SIGNIN"` with an `authUrl` (give it to
+the user) and a `poll` URL → poll until `status` becomes `ACCEPTED`
+(carries `apiEndpoint` + `username`) or `REFUSED`. Full working code:
+§5c. The result is an **apiEndpoint** for the signed-in user:
+
+```
+https://cklm9z6yp00031a3v5kxz9q3m@demo.datasafe.dev/jane/
+```
+
+The token is in the URL's userinfo segment (before `@`). The host portion
+after `@` is the API host from step 1.
+
+**Step 3 — authentication:**
+
+The token goes in the **`Authorization`** request header, **raw** — no
+`Bearer ` prefix, no `Token ` prefix:
+
+```
+Authorization: cklm9z6yp00031a3v5kxz9q3m
+```
+
+Strip the userinfo from the apiEndpoint before using its host as the
+request URL. Never log the apiEndpoint verbatim — it is a bearer
+credential.
+
+**Step 4 — POST /events:**
+
+```
+POST https://demo.datasafe.dev/jane/events
+Authorization: cklm9z6yp00031a3v5kxz9q3m
+Content-Type: application/json
+
+{
+  "streamIds": ["body-temperature-basal"],
+  "type": "temperature/c",
+  "content": 36.6,
+  "time": 1780300000
+}
+```
+
+Response (200 OK):
+
+```json
+{
+  "event": {
+    "id": "ckm12z9yp00041a3v8q1ry7d9",
+    "streamIds": ["body-temperature-basal"],
+    "streamId": "body-temperature-basal",
+    "type": "temperature/c",
+    "content": 36.6,
+    "time": 1780300000,
+    "created": 1780305421.487,
+    "modified": 1780305421.487
+  },
+  "meta": { "apiVersion": "…", "serverTime": 1780305421.487 }
+}
+```
+
+Error responses are non-2xx with shape `{ error: { id, message } }`:
+
+```
+HTTP 400
+{ "error": { "id": "invalid-parameters-format",
+             "message": "type is required" } }
+```
+
+**Other endpoints:**
+
+| Method | Path             | Purpose                                  |
+|--------|------------------|------------------------------------------|
+| GET    | `/streams`       | List streams (tree)                      |
+| GET    | `/events`        | Query events (filter via query string)   |
+| POST   | `/events`        | Create one event                         |
+| PUT    | `/events/{id}`   | Update an event (fix a wrong entry)      |
+| DELETE | `/events/{id}`   | Trash an event (second DELETE erases)    |
+| POST   | `/`              | Batch call (RPC-style, many ops at once) |
+| GET    | `/access-info`   | Inspect the connected access             |
+
+Full Pryv API reference: https://pryv.github.io/reference/. The HDS service
+speaks the same protocol — HDS layers the data model on top.
+
+---
+
+## 5. Worked examples
+
+### 5a. MCP — pilot: fertility-charts folder → HDS
+
+> *"Sign me in to HDS demo, then process the folder at `~/fertility-2026/`
+> and import every reading."*
+
+```
+1. hds.connect()                       → browser OAuth on demo
+2. (agent's filesystem tool)            reads the folder
+3. (agent's vision tool)                OCRs scanned BBT sheets
+4. (agent's code interpreter)           parses Excel
+5. For each distinct data type:
+     hds.search_items("basal body temperature")
+       → top match: body-temperature-basal
+     hds.get_item("body-temperature-basal")
+       → streamId: "body-temperature-basal",
+         eventType: "temperature/c", type: "number"
+6. hds.import_batch({ events: [
+     { streamIds: ["body-temperature-basal"],
+       type: "temperature/c",
+       content: 36.6,
+       time: <epoch-seconds> },
+     ...
+   ]})
+7. hds.get_events({ streams: ["body-temperature-basal"], limit: 5 })
+     → confirms the upload
+```
+
+The HDS MCP itself does not ship filesystem I/O or OCR — those are
+delegated to the agent client's other tools. The pilot only works
+end-to-end if filesystem + vision are available in the client.
+
+### 5b. `hds-lib` — minimal Vite app: sign-in + log a weight
+
+A small Vite project that signs the user in to HDS demo and logs a
+body-weight event. Three files. Run via `npm run dev`, then front with
+`backloop.dev` to get the HTTPS origin Pryv OAuth needs.
+
+**Bootstrap:**
+
+```bash
+npm create vite@latest hds-hello -- --template vanilla
+cd hds-hello
+npm install
+npm install git+https://github.com/healthdatasafe/hds-lib-js.git
+```
+
+**`index.html`** (replace the file Vite generated):
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>HDS hello</title>
+</head>
+<body>
+  <h1>HDS hello</h1>
+  <span id="login-button">Loading…</span>
+  <div id="signed-in" style="display:none; margin-top:1em">
+    <p>Signed in. Item: <code id="item-info"></code></p>
+    <form id="log-form">
+      <input id="weight" type="number" step="0.1" placeholder="Weight in kg" required>
+      <button type="submit">Log weight</button>
+    </form>
+    <pre id="result"></pre>
+  </div>
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
+```
+
+**`main.js`** (replace `counter.js` / `main.js` from the template):
+
+```js
+import * as HDSLib from 'hds-lib';
+
+const SERVICE_INFO_URL = 'https://demo.datasafe.dev/reg/service/info';
+
+HDSLib.settings.setServiceInfoURL(SERVICE_INFO_URL);
+HDSLib.settings.setPreferredLocales(['en']);
+
+let connection = null;
+let item = null;
+
+// setupAuth() replaces the <span> with a Pryv-styled sign-in button.
+// The popup opens to demo.datasafe.dev; the user signs in there.
+HDSLib.pryv.Browser.setupAuth({
+  authRequest: {
+    requestingAppId: 'hds-hello',
+    requestedPermissions: [
+      // Ask only for what the app needs. body-weight is the canonical
+      // streamId — discover keys at model-browser.datasafe.dev, via the
+      // MCP's search_items, or by scanning pack.json items.
+      { streamId: 'body-weight', defaultName: 'Body weight', level: 'manage' }
+    ],
+    returnURL: 'self#'
+  },
+  onStateChange: async (state) => {
+    if (state.id === HDSLib.pryv.Browser.AuthStates.AUTHORIZED) {
+      // Fresh-path AUTHORIZED carries state.key, not state.apiEndpoint
+      // (pryv@3.5.0+). Resolve via connectFromKey, which returns a working
+      // Connection whose apiEndpoint is the token-bearing URL — handle privately.
+      // Cookie-autologin AUTHORIZED still carries state.apiEndpoint directly.
+      connection = state.key
+        ? await HDSLib.pryv.connectFromKey(state.key, SERVICE_INFO_URL)
+        : new HDSLib.pryv.Connection(state.apiEndpoint);
+
+      await HDSLib.initHDSModel();
+      item = HDSLib.getHDSModel().itemsDefs.forKey('body-weight');
+
+      document.getElementById('item-info').textContent =
+        item.label + ' — types: ' + item.eventTypes.join(' / ');
+      document.getElementById('signed-in').style.display = 'block';
+    }
+  },
+  spanButtonID: 'login-button'
+}, SERVICE_INFO_URL);
+
+document.getElementById('log-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const kg = parseFloat(document.getElementById('weight').value);
+  // body-weight is variations-only → eventTemplate() picks mass/kg.
+  const tmpl = item.eventTemplate();
+  const res = await connection.api([{
+    method: 'events.create',
+    params: { ...tmpl, content: kg }
+  }]);
+  document.getElementById('result').textContent =
+    JSON.stringify(res, null, 2);
+});
+```
+
+**Run + expose over HTTPS:**
+
+```bash
+npm run dev                          # Vite on http://localhost:5173
+# in another terminal:
+npx backloop.dev --config=gateway.json
+```
+
+The flag form is `--config=<path>` (equals, no space). The CLI's `--help`
+under-documents this — `backloop.dev <path>` treats the bare arg as a
+directory to serve, not as a config file.
+
+`gateway.json`:
+
+```json
+{
+  "port": 7855,
+  "hostnames": {
+    "hello": { "proxy": "http://localhost:5173" }
+  }
+}
+```
+
+Open `https://hello.backloop.dev:7855/` in a browser. The Pryv sign-in
+button renders; sign-in opens a popup and returns an apiEndpoint; the form
+writes a `body-weight` event using `item.eventTemplate()`.
+
+Port 7855 is chosen here to dodge collision with the canonical default
+7854 (often already taken by an existing backloop instance). For the full
+port-collision rule, see §4b-i.
+
+Why this shape (vs. a plain HTML file + CDN script tag): Pryv OAuth refuses
+non-HTTPS origins, and `file://` / `http://localhost` won't satisfy it.
+`backloop.dev` puts a publicly-trusted `*.backloop.dev` cert in front of
+your localhost dev server, so OAuth works.
+
+### 5c. `hds-lib` in Node — CLI sign-in with terminal URL
+
+Pattern for any non-browser context (CLI tool, Node script, batch job, an
+agent running in Claude Code that wants to act on the user's account
+without spawning a browser itself). The script kicks off Pryv's
+**poll-mode** auth flow, prints the sign-in URL to stdout, then polls
+until the user signs in. **Agents in Claude Code: surface the printed URL
+to the user verbatim — they click it in their own browser.**
+
+**Bootstrap:**
+
+```bash
+mkdir hds-cli-hello && cd hds-cli-hello
+npm init -y
+npm install git+https://github.com/healthdatasafe/hds-lib-js.git
+```
+
+Make `package.json` ESM by adding `"type": "module"`.
+
+**`index.js`:**
+
+```js
+import * as HDSLib from 'hds-lib';
+
+const SERVICE_INFO_URL = 'https://demo.datasafe.dev/reg/service/info';
+const APP_ID = 'hds-cli-hello';
+const PERMISSIONS = [
+  { streamId: 'body-weight', defaultName: 'Body weight', level: 'manage' }
+];
+
+HDSLib.settings.setServiceInfoURL(SERVICE_INFO_URL);
+
+// 1. Discover the access endpoint, kick off poll-mode auth.
+//    POST to the bare `info.access` URL — the appId is carried in the
+//    body as `requestingAppId`. (POSTing to `info.access + appId` is the
+//    sign-in page's *result-reporting* endpoint and will 400.)
+const info = await (await fetch(SERVICE_INFO_URL)).json();
+const initRes = await fetch(info.access, {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({
+    requestingAppId: APP_ID,
+    requestedPermissions: PERMISSIONS,
+    languageCode: 'en',
+    returnURL: 'self'
+  })
+});
+const init = await initRes.json();
+if (init.status !== 'NEED_SIGNIN') {
+  throw new Error(`unexpected auth status: ${init.status}`);
+}
+
+// 2. Print the URL for the user to click.
+//    Do not auto-open a browser — let the human (or the wrapping agent)
+//    decide. In Claude Code, surface this URL verbatim to the user.
+console.log('\n  Open this URL in a browser and sign in to HDS:\n');
+console.log(`    ${init.authUrl ?? init.url}\n`);
+console.log('  Waiting for sign-in…');
+
+// 3. Poll until accepted, refused, or timeout (5 min).
+//    The field is snake_case in the real response (`poll_rate_ms`).
+const pollUrl = init.poll;
+const intervalMs = init.poll_rate_ms ?? 1000;
+const deadline = Date.now() + 5 * 60 * 1000;
+
+let apiEndpoint = null;
+let username = null;
+while (Date.now() < deadline) {
+  await new Promise(r => setTimeout(r, intervalMs));
+  const data = await (await fetch(pollUrl)).json();
+  if (data.status === 'ACCEPTED') {
+    apiEndpoint = data.apiEndpoint;
+    username = data.username;
+    break;
+  }
+  if (data.status === 'REFUSED') {
+    throw new Error(`auth refused: ${data.message ?? 'no reason given'}`);
+  }
+  process.stdout.write('.');
+}
+if (!apiEndpoint) throw new Error('auth timed out');
+
+console.log(`\n  Signed in as ${username}\n`);
+
+// 4. Now use hds-lib normally — model + connection.
+await HDSLib.initHDSModel();
+const item = HDSLib.getHDSModel().itemsDefs.forKey('body-weight');
+const connection = new HDSLib.pryv.Connection(apiEndpoint);
+
+const res = await connection.api([{
+  method: 'events.create',
+  params: { ...item.eventTemplate(), content: 72 }
+}]);
+console.log('Wrote event:', JSON.stringify(res, null, 2));
+```
+
+**Run:**
+
+```bash
+node index.js
+```
+
+Output (real-shape — the auth host is `demo-account.datasafe.dev`, query
+param is `poll=`):
+
+```
+  Open this URL in a browser and sign in to HDS:
+
+    https://demo-account.datasafe.dev/access/access.html?lang=en&key=…&poll=…
+
+  Waiting for sign-in…
+....
+  Signed in as jane
+
+Wrote event: { "results": [ { "event": { "id": "ckm…", … } } ], … }
+```
+
+Verified live against demo.datasafe.dev: the `NEED_SIGNIN` response keys
+are `status, code, key, requestingAppId, requestedPermissions, authUrl,
+url, poll, poll_rate_ms, lang, returnURL, returnUrl, oauthState,
+clientData, serviceInfo`. (`authUrl` and `url` are duplicates — either
+works.)
+
+Verified end-to-end against demo.datasafe.dev (2026-06-10): a real
+sign-in round-trip confirmed the `ACCEPTED`-branch fields
+(`data.apiEndpoint`, `data.username`) and the final
+`connection.api([{ method: 'events.create', … }])` write — the script
+above ran unmodified and the event was independently re-read via the
+API.
+
+The sign-in URL is real HTTPS served by HDS — no `backloop.dev` needed
+here, because the script never serves anything itself; it only **consumes**
+the user's sign-in completion via the poll URL.
+
+### 5d. REST — minimal curl (after OAuth)
+
+Once you have an apiEndpoint, the smallest useful sequence:
+
+```bash
+TOKEN='cklm9z6yp00031a3v5kxz9q3m'
+HOST='https://demo.datasafe.dev/jane'
+
+# Log a basal body temperature
+curl -s "$HOST/events" \
+  -H "Authorization: $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "streamIds": ["body-temperature-basal"],
+    "type": "temperature/c",
+    "content": 36.6
+  }'
+
+# Read it back
+curl -s "$HOST/events?streams=body-temperature-basal&limit=5" \
+  -H "Authorization: $TOKEN"
+```
+
+---
+
+## 6. Production guardrails
+
+- **Default host is demo.** `connect` with no `host` argument targets
+  `demo.datasafe.dev`. `host: "prod"` (or a full service-info URL) targets
+  production.
+- **In-memory tokens only.** The MCP holds the apiEndpoint for the lifetime
+  of the server process. Restart → re-OAuth. Browser apps should treat the
+  apiEndpoint returned by `pryv.connectFromKey(state.key, …)` (or the
+  cookie-autologin `state.apiEndpoint`) the same way: don't write it to
+  disk, don't ship it to a third party. No `localStorage` for it.
+- **Prod writes are a per-session user opt-in.** `create_event` and
+  `import_batch` refuse on production unless the session was opened with
+  `connect({ host: "prod", enableWrites: true })`. Agents: pass
+  `enableWrites` only when the user explicitly asked to write to their
+  production account — the user then confirms on the consent screen. The
+  unlock dies with the session (client restart → back to safe).
+  `HDS_MCP_PROD_WRITES_ENABLED=true` in the MCP's environment is a
+  global override (operator use). Reads on prod work unconditionally.
+- **Token scrubbing (MCP only).** All log, error, and telemetry paths in
+  the MCP run through a scrubber that redacts the token portion of any
+  apiEndpoint URL (`https://TOKEN@host` → `https://***@host`). `hds-lib`
+  does **not** scrub for you — code built on it must never log, print, or
+  persist an apiEndpoint (it is a bearer credential).
+- **Development permissions: wide while developing, narrow when done.**
+  While a project is in development (against a demo account), request
+  `manage` on `*` streams — you don't yet know which streams the project
+  ends up touching, and the wide scope lets you create/reshape streams
+  without friction. **Once development is done, shrink the requested
+  access to the minimal set the finished flow actually uses** — the
+  specific streams, at the lowest sufficient level
+  (`read` < `contribute` < `manage`). Wide scopes are a sandbox
+  convenience, never the end state for anything touching a real account.
+
+---
+
+## 7. Error shapes
+
+### MCP errors (verbatim, as of v0.1.0)
+
+| Trigger                                       | Message                                                                                  |
+|-----------------------------------------------|------------------------------------------------------------------------------------------|
+| No `connect` called yet                       | ``Not connected. Run the `hds.connect` tool first.``                                     |
+| Unknown host alias                            | ``Unrecognised host: X. Use 'demo', 'prod', or a full service-info URL.``                |
+| Prod write without session opt-in             | ``Writes to the production HDS host are disabled for this session. If the user explicitly asked to write to their production account, re-run connect with { host: 'prod', enableWrites: true } ...`` |
+| OAuth refused                                 | ``auth refused: <reason>``                                                               |
+| OAuth poll timed out                          | ``auth timed out — please re-run hds.connect``                                           |
+| Pryv API (GET) error                          | ``Pryv <path> failed: <upstream message>``                                               |
+| Pryv API (POST) error                         | ``Pryv POST <path> failed: <upstream message>``                                          |
+| Pryv batch error                              | ``Pryv batch failed: <upstream message>``                                                |
+| Item key not found in pack.json               | ``No HDS item found for key "X".`` (with optional ``Did you mean one of: ...?`` hint)    |
+
+### Pryv API (HDS backend) status codes (verified live on demo, 2026-06-10)
+
+| Status | Typical error id            | Meaning                                                   |
+|--------|-----------------------------|-----------------------------------------------------------|
+| 400    | `invalid-parameters-format` | Bad request (missing/ill-typed field)                     |
+| 401    | `invalid-access-token`      | **Missing** Authorization header                          |
+| 403    | `invalid-access-token` / `forbidden` | **Invalid** token, or access level too low for the operation (e.g. write with a `read`-level access — re-auth with `contribute`) |
+| 404    | `unknown-resource`          | Unknown user/resource                                     |
+| 5xx    | `unexpected-error`          | Server-side error                                         |
+
+Match on the error `id`, not only the status — body shape:
+`{ "error": { "id": "<error-id>", "message": "..." } }`.
+
+---
+
+## 8. What HDS does NOT do
+
+- It is not a clinical EHR. It is a personal record under the user's
+  control. Don't present HDS-retrieved values as medical advice.
+- The MCP does not store credentials. Each session re-OAuths.
+- The MCP and `hds-lib` do not invent items. If the user's data does not
+  match any item in `pack.json`, surface that to the user before writing.
+- `hds-forms-js` (the React form-renderer library) is not currently
+  CDN-loadable as a standalone bundle. For forms UIs, build a Vite/React
+  app and consume the npm package directly. The single-HTML pattern uses
+  `hds-lib` only.
+
+---
+
+## 9. Where to look next
+
+| Topic                            | URL                                                   |
+|----------------------------------|-------------------------------------------------------|
+| HDS site                         | https://datasafe.dev                                  |
+| Foundation                       | https://www.healthdatasafe.org                        |
+| Developer docs                   | https://docs.datasafe.dev/developers/                 |
+| Agents site (humans first)       | https://agents.datasafe.dev                           |
+| Agent bootstrap instructions     | https://agents.datasafe.dev/bootstrap.txt             |
+| Feedback (GitHub issues)         | https://github.com/healthdatasafe/site-agents/issues  |
+| Data model (machine-readable)    | https://model.datasafe.dev/pack.json                  |
+| Data model browser (human)       | https://model-browser.datasafe.dev                    |
+| `hds-mcp-js` source              | https://github.com/healthdatasafe/hds-mcp-js          |
+| `hds-lib-js` source              | https://github.com/healthdatasafe/hds-lib-js          |
+| `hds-lib-js` docs                | https://healthdatasafe.github.io/hds-lib-js/          |
+| `hds-forms-js` source            | https://github.com/healthdatasafe/hds-forms-js        |
+| `hds-feminine-cycle-ui` source   | https://github.com/healthdatasafe/hds-feminine-cycle-ui |
+| `lib-bridge-js` source           | https://github.com/healthdatasafe/lib-bridge-js       |
+| Pryv API reference (low-level)   | https://pryv.github.io/reference/                     |
+| Data in Pryv (best concept walk-through: streams, events, accesses) | https://pryv.github.io/data-in-pryv/ |
+| Pryv concepts overview           | https://pryv.github.io/concepts/                      |
+| Pryv event-types catalogue       | https://pryv.github.io/event-types/                   |
+| `backloop.dev` (local HTTPS)     | https://backloop.dev · https://github.com/perki/backloop.dev |
+| Patient app (demo)               | https://demo-app.datasafe.dev                         |
+| Doctor dashboard (demo)          | https://demo-doctor-dashboard.datasafe.dev            |
+
+---
+
+End of llms-full.txt

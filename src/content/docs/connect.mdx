@@ -1,0 +1,61 @@
+---
+title: Connect & permissions
+description: The HDS OAuth flow for agents, access levels, the development-time permission recommendation, and production guardrails.
+---
+
+## First connection — OAuth walkthrough
+
+You don't need an HDS account beforehand — you can create one during the
+first sign-in. Ask your agent:
+
+> *"Use hds to sign me in to demo."*
+
+The agent calls the `connect` tool (you'll see it as `hds` → `connect`;
+the `hds.` prefix in prose is just the server alias from your config).
+Your browser opens to a sign-in page on `demo.datasafe.dev`. Sign in, or
+pick **Create an account** — demo sign-up is instant, needs no email
+verification, and demo accounts are throwaway sandboxes. After sign-in, a
+consent screen shows what's requested — **all your HDS data, at
+"contribute" level** (read + write events) by default — and you click
+**Accept**. The HDS auth server tells the MCP that sign-in succeeded; the
+MCP holds your apiEndpoint **in memory for the lifetime of the process**.
+
+When you next close and reopen your client, you re-OAuth — there is no disk
+persistence and no keychain. This is intentional for v1.
+
+## Permissions — wide while developing, narrow when done
+
+`connect` requests **all streams** (`*`) at `contribute` level by default
+(`level: "read"` for read-only, `"manage"` to also create and configure
+streams). You see and approve the scope on the consent screen.
+
+Our recommendation for anyone **developing** — an app, a script, an import
+pipeline, or just iterating with an agent:
+
+1. **Start development with `manage` access on `*` (all streams).** You
+   don't yet know which streams your project ends up touching; a wide
+   scope on a **demo** account keeps iteration friction-free and lets the
+   agent create the streams it needs.
+2. **When development is done, shrink the access to the minimum the
+   finished flow actually uses** — the specific streams, at the lowest
+   sufficient level (`read` < `contribute` < `manage`). Least privilege is
+   the rule for anything that touches a real account.
+
+Wide scopes are a development convenience on sandbox data — never the
+end state for production use.
+
+## Production guardrails
+
+- **Default host is demo.** Calling `connect` without a `host` argument
+  connects to `demo.datasafe.dev`. To target production, pass `host: "prod"`.
+- **In-memory tokens only.** Each restart re-OAuths. No disk, no keychain.
+- **Production writes are a per-session opt-in.** When you're ready to
+  work on your real account, say so explicitly — e.g. *"sign me in to
+  production and enable writing"*. The agent connects with
+  `enableWrites: true` and you confirm on the consent screen; the unlock
+  lasts until you quit the client. Without your explicit ask,
+  `create_event` and `import_batch` refuse on production. Reads
+  (`list_streams`, `get_events`, `search_items`, `get_item`) work on
+  production unconditionally.
+- **Logging hygiene.** All log, error, and telemetry paths run through a
+  centralised scrubber that redacts the token portion of any apiEndpoint URL.

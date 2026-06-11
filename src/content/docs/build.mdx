@@ -1,0 +1,78 @@
+---
+title: Building apps (hds-lib)
+description: When your goal is a web page, app, or Node program — use hds-lib, not the MCP server.
+---
+
+If you ask the agent to **build a web page or a Node script that talks to
+HDS** — rather than "agent processes my folder and writes events" — the
+agent should always reach for [`hds-lib`](https://github.com/healthdatasafe/hds-lib-js).
+It wraps Pryv and adds everything HDS-aware: the data-model singleton,
+item lookup, `HDSService`, app-template scaffolding, localisation,
+converters. **`hds-lib` already bundles Pryv and re-exports it as
+`HDSLib.pryv`**, so there is never a reason to load the raw `pryv` SDK as
+a separate dependency.
+
+## Install via npm + bundler — not via CDN
+
+`hds-lib` ships as a git-URL npm package. Use any bundler you like — Vite
+is the fastest from-scratch path:
+
+```bash
+npm create vite@latest my-hds-app -- --template vanilla
+cd my-hds-app
+npm install
+npm install git+https://github.com/healthdatasafe/hds-lib-js.git
+```
+
+Then `import * as HDSLib from 'hds-lib'` in your code.
+
+:::caution[Do not load `hds-lib.js` from a CDN script tag]
+Pryv OAuth refuses non-HTTPS origins, so a plain HTML file at `file://` or
+`http://localhost` cannot complete sign-in. The gh-pages bundle at
+`healthdatasafe.github.io/hds-lib-js/hds-lib.js` exists for the project's
+own demo pages — it is **not** a supported consumer entry point. Always
+`npm install` + bundle, and front the dev server with
+[`backloop.dev`](https://backloop.dev) for HTTPS (see the
+[`llms-full.txt`](/llms-full.txt) "Developing with Claude Code" section for
+the full recipe).
+:::
+
+:::caution[Never add raw `pryv` alongside `hds-lib`]
+`pryv` is already bundled inside `hds-lib`. Loading both gives you two
+copies of the Pryv SDK in the same page. Everything Pryv-related is
+reachable through `HDSLib.pryv`.
+:::
+
+Full reference: [healthdatasafe.github.io/hds-lib-js](https://healthdatasafe.github.io/hds-lib-js/).
+
+## Development permissions
+
+While building, request a wide scope — `manage` on `*` streams — against a
+**demo** account, so your app and your agent can create and reshape the
+streams they need. **Before the app meets a real account, shrink the
+requested permissions to the minimal set the finished flow uses.** See
+[Connect & permissions](/connect/#permissions--wide-while-developing-narrow-when-done).
+
+## Helpful exports inside `hds-lib`
+
+A few exports an agent building on `hds-lib` will reach for often:
+
+- `eventToShortText(event)` — shared formatter for displaying events as `"60 Kg"` / `"Aspirin · 100mg"` / etc.
+- `MonitorScope` — progressive event loading + WebSocket subscribe; use for live timelines and dashboards.
+- `computeReminders(item, source)` — "what's due now" computation.
+- `HDSSettings`, `getPreferredInput`, `getPreferredDisplay` — per-user unit / locale / date-format awareness.
+- `appTemplates.*` — the legal/consent shape every HDS app uses (`AppManagingAccount`, `AppClientAccount`, `Collector`, `CollectorClient`).
+
+The full flat enumeration with one-line descriptions lives in [`hds-lib-js/AGENTS.md`](https://github.com/healthdatasafe/hds-lib-js/blob/main/AGENTS.md#public-api-index-source-of-truth-tsindexts).
+
+## Companion libraries
+
+For richer apps, `hds-lib` is the foundation — these build on top of it
+(all expect a bundler, no CDN script tags; all install via `git+https://…`,
+none are on the npm registry):
+
+| Library                                                                                | What it gives you                                                                                       | Agent docs                                                                                                  |
+|----------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| [`hds-forms-js`](https://github.com/healthdatasafe/hds-forms-js)                        | `<HDSFormField>` — React form input that auto-renders from an HDS item definition.                      | [AGENTS.md](https://github.com/healthdatasafe/hds-forms-js/blob/main/AGENTS.md)                              |
+| [`hds-feminine-cycle-ui`](https://github.com/healthdatasafe/hds-feminine-cycle-ui)      | FEMM / Billings / Creighton / Mira chart cells + cervix-position glyphs for cycle-tracking events.      | [AGENTS.md](https://github.com/healthdatasafe/hds-feminine-cycle-ui/blob/main/AGENTS.md)                     |
+| [`lib-bridge-js`](https://github.com/healthdatasafe/lib-bridge-js)                      | Express skeleton for HDS bridges — backend services that sync a third-party platform's data into HDS.   | [AGENTS.md](https://github.com/healthdatasafe/lib-bridge-js/blob/main/AGENTS.md)                             |
