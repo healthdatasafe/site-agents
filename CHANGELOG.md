@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Dark mode: inverted the Starlight accent scale for `[data-theme='dark']` —
+  links were near-invisible dark blue on dark background (2026-06-11).
+
 ## 0.1.0 — 2026-06-11
 
 - Initial site: agent-facing HDS documentation moved out of dev-site to
