@@ -9,6 +9,14 @@
   --sl-font-system: 'Inter', sans-serif;
 }
 
+/* Dark mode needs the accent scale inverted: Starlight colors links and
+   accented text with accent-high, which must be LIGHT on a dark background. */
+:root[data-theme='dark'] {
+  --sl-color-accent-low: #172554;
+  --sl-color-accent: #3b82f6;
+  --sl-color-accent-high: #93bbfc;
+}
+
 /* Lighter title color in dark mode for readability */
 :root[data-theme='dark'] .site-title span {
   color: #93bbfc;
