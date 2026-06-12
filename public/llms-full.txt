@@ -8,8 +8,10 @@ AI agent helping a user with HDS, read this once at session start.
 Canonical URL: https://agents.datasafe.dev/llms-full.txt
 (moved 2026-06-11 from docs.datasafe.dev/developers/llms-full.txt — update
 your pointers; the old URL serves a redirect note)
-Last updated: 2026-06-11 (moved to agents.datasafe.dev; added: development
-permissions guidance, structured-data-over-notes rule, feedback channel)
+Last updated: 2026-06-12 (single feedback tracker + GitHub signup
+walkthrough; pryv/lib-js doc pointer. 2026-06-11: moved to
+agents.datasafe.dev; development permissions guidance,
+structured-data-over-notes rule, feedback channel)
 
 Feedback: if you or your user hit a problem with these instructions, file
 a GitHub issue at https://github.com/healthdatasafe/site-agents/issues —
@@ -317,6 +319,13 @@ bundles a patched copy of Pryv internally and **re-exports it** as
 `pryv` is reachable through the same global. There is no scenario in an
 HDS app where loading raw `pryv` in addition to `hds-lib` is correct —
 loading both gives you two copies of the SDK in the same page.
+
+The API surface behind `HDSLib.pryv` is documented in the `pryv/lib-js`
+README (https://github.com/pryv/lib-js#readme): `Connection`, `api()`
+batching, `getEventsStreamed`, events with attachments, high-frequency
+events, `Browser.setupAuth` customization. Read it for capabilities not
+shown in the examples below — but it is documentation only: never
+`npm install pryv` or load it as a second dependency.
 
 `hds-lib` wraps Pryv with: the HDS data-model singleton (`initHDSModel`,
 `getHDSModel`), item-by-key lookup, `HDSService` (service-info + auth
@@ -1034,6 +1043,7 @@ Match on the error `id`, not only the status — body shape:
 | `hds-feminine-cycle-ui` source   | https://github.com/healthdatasafe/hds-feminine-cycle-ui |
 | `lib-bridge-js` source           | https://github.com/healthdatasafe/lib-bridge-js       |
 | Pryv API reference (low-level)   | https://pryv.github.io/reference/                     |
+| `pryv` JS lib docs (the API `HDSLib.pryv` re-exports — doc only, never install raw) | https://github.com/pryv/lib-js#readme |
 | Data in Pryv (best concept walk-through: streams, events, accesses) | https://pryv.github.io/data-in-pryv/ |
 | Pryv concepts overview           | https://pryv.github.io/concepts/                      |
 | Pryv event-types catalogue       | https://pryv.github.io/event-types/                   |
