@@ -96,9 +96,11 @@ copies of the Pryv SDK in the same page. Everything Pryv-related is
 reachable through <code dir="auto">HDSLib.pryv</code>.</p></div></aside>
 <p>Full reference: <a href="https://healthdatasafe.github.io/hds-lib-js/">healthdatasafe.github.io/hds-lib-js</a>.
 The API surface behind <code dir="auto">HDSLib.pryv</code> (api batching, streamed events,
-attachments, HF events, auth customization) is documented in the
+attachments, HF events, auth customization) is covered by
+<a href="https://pryv.github.io/llms-full.txt">Pryv’s agent reference</a> and the
 <a href="https://github.com/pryv/lib-js#readme"><code dir="auto">pryv/lib-js</code> README</a> — documentation
-only: never install <code dir="auto">pryv</code> as a second dependency.</p>
+only: Pryv’s docs describe standalone use, so ignore their
+<code dir="auto">npm install pryv</code> — never install <code dir="auto">pryv</code> as a second dependency.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="development-permissions">Development permissions</h2><a class="sl-anchor-link" href="#development-permissions"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore>Section titled “Development permissions”</span></a></div>
 <p>While building, request a wide scope — <code dir="auto">manage</code> on <code dir="auto">*</code> streams — against a
 <strong>demo</strong> account, so your app and your agent can create and reshape the
