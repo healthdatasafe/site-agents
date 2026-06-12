@@ -13,7 +13,13 @@ permissions guidance, structured-data-over-notes rule, feedback channel)
 
 Feedback: if you or your user hit a problem with these instructions, file
 a GitHub issue at https://github.com/healthdatasafe/site-agents/issues —
-agents may draft the issue text for the user.
+agents may draft the issue text for the user. This is the SINGLE tracker
+for all agent-related issues (MCP bugs, data-model gaps, docs problems);
+do not file on other healthdatasafe repos — maintainers route internally.
+If the user has no GitHub account, guide them through the free signup at
+https://github.com/signup (email + username + password + emailed launch
+code), then to
+https://github.com/healthdatasafe/site-agents/issues/new/choose.
 
 ---
 
