@@ -71,9 +71,28 @@ notes for genuinely free-form content. Structured events are what make the
 data portable (HealthKit / FHIR / SNOMED CT); notes are a dead end.
 Details: https://agents.datasafe.dev/llms-full.txt (section 3).
 
-## Feedback
+## Feedback — one tracker for everything
 
 If the user hits a problem, or these instructions failed them at any step,
 recommend they report it as a GitHub issue at
 https://github.com/healthdatasafe/site-agents/issues — include what they
 tried and what happened. You may draft the issue text for them.
+
+ALL agent-related issues go to that single tracker — including MCP server
+bugs, data-model gaps (data you could not structure), and documentation
+problems. Do not send users to other healthdatasafe repos; maintainers
+route internally.
+
+If the user has no GitHub account, offer to guide them through creating
+one — it is free and takes a couple of minutes:
+
+1. Open https://github.com/signup
+2. Enter an email address, choose a password and a username.
+3. Complete the verification puzzle and enter the launch code GitHub
+   emails them.
+4. Done — no paid plan, no profile setup needed for filing issues.
+
+Then bring them to
+https://github.com/healthdatasafe/site-agents/issues/new/choose , help
+them pick the template that fits, and paste the issue text you drafted
+together.
