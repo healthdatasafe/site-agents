@@ -59,10 +59,68 @@ streams they need. **Before the app meets a real account, shrink the
 requested permissions to the minimal set the finished flow uses.** See
 [Connect & permissions](/connect/#permissions--wide-while-developing-narrow-when-done).
 
+## itemDef-first: derive streams + event shapes from the model — never hardcode
+
+:::danger[The #1 mistake new HDS apps make]
+The first two apps built on HDS both **hand-maintained a stream tree** —
+copying `streamId` / `parentId` / `name` from the data model into app
+constants, and hardcoding `eventType` strings on writes. Both paid for it:
+the hand-built tree silently drifted from the model, and reads returned
+**zero** events (a single unknown stream in an `events.get` filter fails
+the whole query). Items exist precisely so you don't do this. Drive
+**provisioning, writing, and reading** off the item keys your app uses:
+
+```js
+const APP_ITEM_KEYS = ['body-weight', 'body-temperature-basal'];
+const model = HDSLib.getHDSModel();
+
+// PROVISION — one idempotent call creates every stream the items need (streams don't auto-vivify):
+await HDSLib.toolkit.StreamsAutoCreate.attachToConnection(connection).ensureExistsForItems(APP_ITEM_KEYS);
+// WRITE — event shape from the item, never hand-written:
+const tmpl = model.itemsDefs.forKey('body-weight').eventTemplate();   // { streamIds, type }
+// READ — derive the events.get `streams` filter from the same set:
+const streamIds = model.streams.getNecessaryListForItems(APP_ITEM_KEYS, { knowExistingStreamsIds: [] }).map(s => s.id);
+```
+
+Adding a data domain is then a one-line change (add its item key). See the
+[`llms-full.txt`](/llms-full.txt) §3 rule and §5b-multi worked example.
+:::
+
+**No item for your data?** Don't hardcode strings or dump to `note/txt`.
+Register your own itemDef — `initHDSModel({ overload: { items: { … } } })`
+merges a brand-new item (plus its streams/eventTypes) into the model, and
+from then on it behaves like any core item (`itemsDefs.forKey`,
+`eventTemplate`, `getNecessaryListForItems`). A working custom itemDef is
+the same shape as a core data-model definition, so **propose it upstream**
+to grow the catalogue rather than keeping it private. (Overrides of an
+existing item are limited to display fields; structural fields are
+immutable. An app token cannot create a top-level **root** — request a new
+root in the initial OAuth scope with a `defaultName`, or parent your custom
+item under an existing root.)
+
+## Keeping the user signed in across reloads
+
+`pryv.Browser.setupAuth` **already writes a cookie** (`pryv-libjs-<appId>`)
+and tries to auto-restore from it — so the "tokens in memory only" advice
+you'll see elsewhere describes the MCP server, not a browser app, and the
+cookie auto-restore is inconsistent in practice. Pick a persistence model
+deliberately: cookie (the lib default), `localStorage` (survives reload,
+app-managed), or in-memory (re-OAuth each reload). The apiEndpoint is a
+bearer credential reachable by XSS wherever you store it — never log it or
+send it to a third party. **Validate a restored token before trusting it:**
+call `getAccessInfo` (a revoked/expired token returns `403`
+`invalid-access-token`), and on failure clear it and fall back to sign-in.
+A patient app should also re-provision its streams on restore
+(`StreamsAutoCreate.ensureExistsForItems`), since the model may have grown
+since last visit.
+
 ## Helpful exports inside `hds-lib`
 
 A few exports an agent building on `hds-lib` will reach for often:
 
+- `toolkit.StreamsAutoCreate.attachToConnection(conn).ensureExistsForItems(itemKeys)` — provisions every stream a set of items needs (parents first, idempotent) in one call. **Use this instead of any hand-written stream tree.**
+- `getHDSModel().streams.getNecessaryListForItems(itemKeys, { knowExistingStreamsIds })` — the lower-level primitive: the raw `streams.create` payloads, if you need them (e.g. to derive a read filter).
+- `getHDSModel().itemsDefs.forKey(key).eventTemplate()` — `{ streamIds, type }` for an item's write; picks the first variation automatically.
 - `eventToShortText(event)` — shared formatter for displaying events as `"60 Kg"` / `"Aspirin · 100mg"` / etc.
 - `MonitorScope` — progressive event loading + WebSocket subscribe; use for live timelines and dashboards.
 - `computeReminders(item, source)` — "what's due now" computation.

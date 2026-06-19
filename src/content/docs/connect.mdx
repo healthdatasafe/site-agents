@@ -44,6 +44,31 @@ pipeline, or just iterating with an agent:
 Wide scopes are a development convenience on sandbox data — never the
 end state for production use.
 
+### Browser OAuth: `*` works, but concrete roots are better
+
+`pryv.Browser.setupAuth` accepts a wildcard request —
+`requestedPermissions: [{ streamId: '*', level: 'manage' }]` — and the
+consent screen reads "Manage **all your data**". That's fine while
+developing. For the shipped app, request the **concrete root streams** your
+flow uses, each with a `defaultName`:
+
+```js
+requestedPermissions: [
+  { streamId: 'body',     defaultName: 'Body',     level: 'manage' },
+  { streamId: 'fertility', defaultName: 'Fertility', level: 'manage' },
+  { streamId: 'symptom',  defaultName: 'Symptoms', level: 'manage' }
+]
+```
+
+Two payoffs: the consent screen names exactly what's shared ("Manage
+**Body** / **Fertility** / **Symptoms**" — clearer least-privilege UX), and
+**a requested root with a `defaultName` is provisioned on the user's
+account at grant time.** Caveat: that provisioning only fires on the
+*initial* authorization — adding a new root to an already-granted access
+does not create it (see the [`llms-full.txt`](/llms-full.txt) §7 root note).
+Ship every root your app will need in the first scope. Descendant streams
+are created from the model after sign-in (see [Building apps](/build/)).
+
 ## Production guardrails
 
 - **Default host is demo.** Calling `connect` without a `host` argument
