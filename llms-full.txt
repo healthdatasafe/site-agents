@@ -8,10 +8,14 @@ AI agent helping a user with HDS, read this once at session start.
 Canonical URL: https://agents.datasafe.dev/llms-full.txt
 (moved 2026-06-11 from docs.datasafe.dev/developers/llms-full.txt — update
 your pointers; the old URL serves a redirect note)
-Last updated: 2026-06-12 (single feedback tracker + GitHub signup
-walkthrough; pryv/lib-js doc pointer. 2026-06-11: moved to
-agents.datasafe.dev; development permissions guidance,
-structured-data-over-notes rule, feedback channel)
+Last updated: 2026-06-19 (itemDef-first rewritten as an end-to-end
+provision→write→read rule with StreamsAutoCreate + getNecessaryListForItems;
+anti-pattern box; custom-itemDef-via-overload path; multi-item worked
+example §5b-multi; coach↔patient sharing §5e; events.get read trap + root
+provisioning sharp edges §7; browser-app session-persistence guidance.
+2026-06-12: single feedback tracker + GitHub signup walkthrough; pryv/lib-js
+doc pointer. 2026-06-11: moved to agents.datasafe.dev; development
+permissions guidance, structured-data-over-notes rule, feedback channel)
 
 Feedback: if you or your user hit a problem with these instructions, file
 a GitHub issue at https://github.com/healthdatasafe/site-agents/issues —
@@ -171,7 +175,9 @@ Permissions are **stream-scoped and inherit down the stream tree**;
 `streamId: "*"` means the whole account. Access kinds: `personal` (the
 user's own full-account token), `app` (what OAuth gives an app — scoped
 to the permissions the user approved on the consent screen), `shared`
-(links the user hands out). A `forbidden` (HTTP 403) error on a write
+(scoped, revocable links the user hands out — e.g. a patient sharing
+read-only streams with a coach; full mint→consume→list→revoke lifecycle in
+§5e). A `forbidden` (HTTP 403) error on a write
 usually means the access level is too low (e.g. `read` where
 `contribute` was needed) — re-auth with the right level instead of
 retrying. The MCP's `connect` requests `streamId: "*"` ("All HDS data")
@@ -204,20 +210,62 @@ content.
 
 ---
 
-## 3. The itemDef-first rule (applies to MCP, `hds-lib`, and REST)
+## 3. The itemDef-first rule — items drive provision, write, AND read
 
-Whenever the user asks the agent to record or import health data, the
-order is:
+Items are not just a write-time lookup. They are the **single source of
+truth** for which streams an app creates, how it writes events, and which
+streams it reads back. Whenever the user asks the agent to record, import,
+or read health data:
 
 ```
-1. search for the canonical HDS item
-2. read the item's spec
-3. write events using the item's streamId + eventType (+ unit, on variations)
+1. LOOK UP   the canonical HDS item(s) for the data
+2. PROVISION the streams those item(s) need — derived from the model, parents first
+3. WRITE     events using the item's streamId + eventType (+ unit, on variations)
+4. READ      back by querying the SAME model-derived stream set
 ```
 
-Skipping the lookup and inventing `streamIds` + `type` strings breaks the
-cross-system mapping that items carry. **Always look up first; on miss, ask
-the user before inventing.**
+Skipping the lookup and inventing `streamId`/`eventType` strings — or
+hand-maintaining your own stream tree (`id` / `parentId` / `name`) copied
+out of the pack — breaks the cross-system mapping items carry **and**
+silently drifts from the canonical model the moment either side changes.
+**Always look up first; derive streams and event shapes from the model,
+never hand-write them. On a genuine miss, define your own itemDef (below)
+or ask the user — never invent loose strings.**
+
+> ### ⛔ Anti-pattern — the #1 mistake new HDS apps make
+>
+> Do **NOT** hardcode a stream tree, parent chain, stream names, or
+> `eventType` strings in app code. The first two apps built on HDS both did
+> exactly this — copying streamIds/eventTypes from the pack into app
+> constants — and both hit the same two failures: (1) the hand-built tree
+> drifted from the model as soon as the model changed, and (2) reads
+> silently returned **zero** events, because a single unknown stream in an
+> `events.get` filter fails the *whole* query (see §7). Derive everything
+> from the model, keyed off the item keys your app uses. In `hds-lib`:
+>
+> ```js
+> const APP_ITEM_KEYS = ['body-weight', 'body-temperature-basal', 'cervical-fluid-observation'];
+> const model = HDSLib.getHDSModel();
+>
+> // PROVISION — ONE call creates every stream these items need (parents first, idempotent).
+> // You do NOT assemble the batch yourself:
+> await HDSLib.toolkit.StreamsAutoCreate.attachToConnection(connection).ensureExistsForItems(APP_ITEM_KEYS);
+>
+> // WRITE — never hand-write streamId/eventType:
+> const tmpl = model.itemsDefs.forKey('body-weight').eventTemplate();  // { streamIds, type }
+>
+> // READ — derive the events.get `streams` filter from the SAME item set:
+> const streamIds = model.streams.getNecessaryListForItems(APP_ITEM_KEYS, { knowExistingStreamsIds: [] }).map(s => s.id);
+> ```
+>
+> (`getNecessaryListForItems` is the lower-level primitive — it returns the
+> raw `{ id, name, defaultName?, parentId }` payloads if you ever need them.
+> `StreamsAutoCreate.ensureExistsForItems` is what the two early apps
+> reimplemented by hand; use it instead.)
+>
+> MCP and REST users derive the same structure from `pack.json` — read
+> `pack.items[key].streamId` and walk `pack.streams` for parents; never
+> transcribe the tree into code.
 
 **Structured data over notes — push back on `note/txt`.** When the user
 brings a dataset HDS has no item for (an unbridged app's export, a
@@ -231,6 +279,53 @@ an issue at https://github.com/healthdatasafe/site-agents/issues so the
 data model can grow a proper item; (4) only genuinely free-form content (a
 diary entry, a letter's text) belongs in `note/txt`. Push back even if the
 user asks for notes as the easy way out — explain what they would lose.
+
+### No item exists yet? Define your own — don't hardcode, don't dump to notes
+
+When HDS has **no** item for the data, there is a supported third path that
+keeps you on the itemDef-first rule instead of falling back to raw
+streamId/eventType or `note/txt`: **load your own itemDef into `hds-lib`.**
+`initHDSModel({ overload })` accepts an overload the model merges in; adding
+a brand-new item (plus the streams and eventTypes it needs) is always
+allowed:
+
+```js
+await HDSLib.initHDSModel({
+  overload: {
+    items: {
+      'body-my-observation': {
+        label: { en: 'My observation' },
+        streamId: 'body-my-observation',
+        eventType: 'note/txt',      // or a fitting category/unit from pack.eventTypes
+        type: 'string'
+      }
+    },
+    // declare the stream under an EXISTING root (here: body) — see the root caveat below
+    streams: [{ id: 'body-my-observation', name: 'My observation', parentId: 'body' }]
+  }
+});
+// From here the custom item behaves like any core item — same itemDef-first API:
+const item = HDSLib.getHDSModel().itemsDefs.forKey('body-my-observation');
+const tmpl = item.eventTemplate();
+```
+
+Overriding an *existing* item via overload is limited to display fields
+(`label/description/repeatable/reminder/devNotes`); structural fields
+(`type/streamId/eventType/variations/options/composite/datasource`) are
+immutable. **Root caveat:** an app/shared token cannot create a top-level
+root stream (`parentId: null` → `forbidden`, even with `manage`); if your
+custom item needs a brand-new root, request it in the **initial** OAuth
+permissions with a `defaultName` so it is provisioned on grant (see §5b /
+the accesses notes). Parent custom items under an existing root to avoid
+this entirely.
+
+**Then propose it upstream.** A working custom itemDef is the same shape as
+a core data-model definition, so it doubles as a ready-made proposal:
+validate it against the data-model schemas and submit it to grow the core
+model — file at https://github.com/healthdatasafe/site-agents/issues with
+your itemDef attached. This is how the catalogue grows: every app that
+needs a new observation should contribute it back rather than re-inventing
+it privately.
 
 How each interface implements it:
 
@@ -329,7 +424,12 @@ https://pryv.github.io/llms.txt) — `Connection`, `api()` batching,
 Pryv's docs describe standalone use and will tell you to
 `npm install pryv` — in an HDS app, never do that: everything is already
 reachable via `HDSLib.pryv`, and HDS-level rules (itemDef-first, §3) still
-apply on top.
+apply on top. **Pryv's reference is `streamId`/`eventType`-native — it has
+no item concept, so its examples show literal stream ids and types. Do NOT
+copy those literals into `streams.create` payloads or `events.get` filters;
+in HDS those values must come from the model (§3), never be hand-written.
+Use Pryv's docs for the API *mechanics* (batching, streamed reads,
+attachments), not for what streams/types to use.**
 
 `hds-lib` wraps Pryv with: the HDS data-model singleton (`initHDSModel`,
 `getHDSModel`), item-by-key lookup, `HDSService` (service-info + auth
@@ -371,19 +471,32 @@ requires.
 > there for the project's own demo pages, not as a supported consumer
 > entry point. Always install + bundle.
 
-**Canonical write-shape pattern** — what every agent should reach for:
+**Canonical provision→write→read pattern** — what every agent should reach
+for. Drive all three off the item keys your app uses; never hand-write a
+stream tree or `streamId`/`eventType` strings (see §3):
 
 ```js
-const item = HDSLib.getHDSModel().itemsDefs.forKey('body-weight');
-const tmpl = item.eventTemplate();          // { streamIds, type }
-await connection.api([{
-  method: 'events.create',
-  params: { ...tmpl, content: 72, time: epochSeconds }
-}]);
+const APP_ITEM_KEYS = ['body-weight', 'body-temperature-basal'];
+const model = HDSLib.getHDSModel();
+
+// 1. PROVISION — streams must pre-exist; they do NOT auto-vivify on events.create.
+//    StreamsAutoCreate creates the whole tree (parents first) and is idempotent.
+await HDSLib.toolkit.StreamsAutoCreate.attachToConnection(connection).ensureExistsForItems(APP_ITEM_KEYS);
+
+// 2. WRITE — eventTemplate() gives { streamIds, type }; picks the first variation for you.
+const tmpl = model.itemsDefs.forKey('body-weight').eventTemplate();
+await connection.api([{ method: 'events.create', params: { ...tmpl, content: 72, time: epochSeconds } }]);
+
+// 3. READ — derive the streams filter from the SAME set. A single unknown stream in the
+//    filter fails the WHOLE events.get (returns zero events), so create the full tree first.
+const streamIds = model.streams.getNecessaryListForItems(APP_ITEM_KEYS, { knowExistingStreamsIds: [] }).map(s => s.id);
+const events = await connection.api([{ method: 'events.get', params: { streams: streamIds } }]);
 ```
 
 `HDSItemDef` exposes more than `eventTemplate()` — `eventTypes`, `label`,
-`description`, `repeatable`, `isDeprecated`, raw `data`, etc.
+`description`, `repeatable`, `isDeprecated`, raw `data`, etc. For a custom
+observation HDS has no item for, register your own itemDef via
+`initHDSModel({ overload })` and keep using this exact pattern (see §3).
 
 **Other high-value helpers** (full enumeration in the lib's AGENTS.md):
 
@@ -789,6 +902,56 @@ non-HTTPS origins, and `file://` / `http://localhost` won't satisfy it.
 `backloop.dev` puts a publicly-trusted `*.backloop.dev` cert in front of
 your localhost dev server, so OAuth works.
 
+### 5b-multi. `hds-lib` — a real multi-item app (provision → write → read)
+
+§5b logs a single item, so it never has to build a stream tree. **Real apps
+use several items across nested streams** — and that's exactly where the
+two early HDS apps went wrong (they hand-coded a `STREAM_TREE` constant and
+hardcoded `streamId`/`eventType` strings; see §3). Here is the pattern that
+keeps everything model-derived. The whole app is keyed off one list:
+
+```js
+import * as HDSLib from 'hds-lib';
+
+// The ONLY app-specific declaration: which model items this app uses.
+// Streams, parent chains, names, and event shapes are ALL derived from this.
+const APP_ITEM_KEYS = [
+  'body-weight',
+  'body-temperature-basal',
+  'cervical-fluid-observation'
+];
+
+// ── after sign-in (connection ready) ───────────────────────────────────
+await HDSLib.initHDSModel();
+const model = HDSLib.getHDSModel();
+
+// 1. PROVISION the full tree ONCE, at sign-in — parents first, idempotent.
+//    Create everything the app reads, so the first read can't hit an unknown stream (§7).
+//    StreamsAutoCreate does the getNecessaryListForItems → streams.create batch for you and
+//    swallows "item-already-exists" — it is what the early apps reimplemented by hand.
+await HDSLib.toolkit.StreamsAutoCreate.attachToConnection(connection).ensureExistsForItems(APP_ITEM_KEYS);
+
+// 2. WRITE — event shape comes from the item, never hand-written.
+async function logItem(itemKey, content, time = Date.now() / 1000) {
+  const tmpl = model.itemsDefs.forKey(itemKey).eventTemplate();   // { streamIds, type }
+  return connection.api([{ method: 'events.create', params: { ...tmpl, content, time } }]);
+}
+await logItem('body-weight', 64.2);
+await logItem('body-temperature-basal', 36.7);
+
+// 3. READ — the events.get filter is derived from the SAME item set.
+//    (If even one listed stream didn't exist, events.get would return ZERO events — §7.)
+const streamIds = model.streams.getNecessaryListForItems(APP_ITEM_KEYS, { knowExistingStreamsIds: [] }).map(s => s.id);
+const history = await connection.api([{ method: 'events.get', params: { streams: streamIds } }]);
+```
+
+Adding a new data domain to this app is a **one-line** change: add its item
+key to `APP_ITEM_KEYS`. The next sign-in provisions the new streams,
+writes use its `eventTemplate()`, and reads pick it up — no tree edit, no
+new `streamId`/`eventType` constant. If you need an observation the model
+doesn't cover, register a custom itemDef via `initHDSModel({ overload })`
+(§3) and add its key here too.
+
 ### 5c. `hds-lib` in Node — CLI sign-in with terminal URL
 
 Pattern for any non-browser context (CLI tool, Node script, batch job, an
@@ -946,6 +1109,53 @@ curl -s "$HOST/events?streams=body-temperature-basal&limit=5" \
   -H "Authorization: $TOKEN"
 ```
 
+### 5e. `hds-lib` — coach ↔ patient sharing (mint → consume → list → revoke)
+
+The canonical pattern for one user (a **patient**) to grant another user (a
+**coach**) scoped, revocable, read-only access to part of their account.
+Built on Pryv's `accesses.*` API; verified live. The patient must have
+already provisioned the streams being shared (§3) so the coach's reads
+don't hit the §7 read trap.
+
+```js
+// ── PATIENT side: mint a shared access scoped to specific roots, read-only ──
+const shareRes = await patientConnection.api([{
+  method: 'accesses.create',
+  params: {
+    type: 'shared',
+    name: 'coach-jane-2026',
+    permissions: [
+      { streamId: 'body',      level: 'read' },
+      { streamId: 'fertility', level: 'read' },
+      { streamId: 'symptom',   level: 'read' }
+    ],
+    clientData: { 'app:role': 'coach-share' }   // tag so you can filter your own shares later
+  }
+}]);
+// The created access carries a ready-to-use apiEndpoint: https://<token>@<host>/<username>/
+const coachApiEndpoint = shareRes[0].access.apiEndpoint;
+// (equivalently: HDSLib.pryv.utils.buildAPIEndpoint(serviceInfo, token) from the owner endpoint + token.)
+// Hand coachApiEndpoint to the coach over a trusted channel — it embeds a bearer token.
+
+// ── COACH side: consume it ──
+const coachConnection = new HDSLib.pryv.Connection(coachApiEndpoint);
+const events = await coachConnection.api([{ method: 'events.get', params: { streams: ['body', 'fertility', 'symptom'] } }]);
+// read-only: the coach can render the patient's chart but not write.
+
+// ── PATIENT side: list shares (filter to ones this app minted) ──
+const all = await patientConnection.api([{ method: 'accesses.get', params: {} }]);
+const myShares = all[0].accesses.filter(a => a.clientData?.['app:role'] === 'coach-share');
+
+// ── PATIENT side: revoke ──
+await patientConnection.api([{ method: 'accesses.delete', params: { id: myShares[0].id } }]);
+// After revoke the coach's token returns HTTP 403 `invalid-access-token` immediately.
+```
+
+Notes: per-stream `read` scoping means the coach sees only the shared
+roots. An **app token can self-revoke** via `accesses.delete` on its own
+access, and that **cascades to child shared accesses** it created — useful
+for the GAP-007 re-authorization migration (§7).
+
 ---
 
 ## 6. Production guardrails
@@ -953,11 +1163,22 @@ curl -s "$HOST/events?streams=body-temperature-basal&limit=5" \
 - **Default host is demo.** `connect` with no `host` argument targets
   `demo.datasafe.dev`. `host: "prod"` (or a full service-info URL) targets
   production.
-- **In-memory tokens only.** The MCP holds the apiEndpoint for the lifetime
-  of the server process. Restart → re-OAuth. Browser apps should treat the
-  apiEndpoint returned by `pryv.connectFromKey(state.key, …)` (or the
-  cookie-autologin `state.apiEndpoint`) the same way: don't write it to
-  disk, don't ship it to a third party. No `localStorage` for it.
+- **MCP: in-memory tokens only.** The MCP holds the apiEndpoint for the
+  lifetime of the server process. Restart → re-OAuth. No disk, no keychain.
+- **Browser apps: session persistence is allowed — choose deliberately.**
+  Note `pryv.Browser.setupAuth` **already persists a cookie**
+  (`pryv-libjs-<appId>`) and auto-restores from it, so the blanket "in-memory
+  only" advice does not match the library's own behavior — and that
+  auto-restore is inconsistent in practice (some reloads land back on
+  sign-in). Pick one model explicitly rather than relying on the default:
+  cookie (the lib's default), `localStorage` (survives reload, app-managed),
+  or in-memory (re-OAuth every reload). The apiEndpoint is a bearer
+  credential reachable by XSS wherever it is stored — never ship it to a
+  third party, never log it. **Always validate a restored token before
+  trusting it:** call `getAccessInfo` (a revoked/expired token returns
+  403 `invalid-access-token`); on failure clear the stored value and fall
+  back to sign-in. Validating on restore also avoids a stale cookie showing
+  a deceptive "signed-in" state.
 - **Prod writes are a per-session user opt-in.** `create_event` and
   `import_batch` refuse on production unless the session was opened with
   `connect({ host: "prod", enableWrites: true })`. Agents: pass
@@ -1004,13 +1225,38 @@ curl -s "$HOST/events?streams=body-temperature-basal&limit=5" \
 | Status | Typical error id            | Meaning                                                   |
 |--------|-----------------------------|-----------------------------------------------------------|
 | 400    | `invalid-parameters-format` | Bad request (missing/ill-typed field)                     |
+| 400    | `unknown-referenced-resource` | A referenced stream does not exist — see the read trap below |
 | 401    | `invalid-access-token`      | **Missing** Authorization header                          |
-| 403    | `invalid-access-token` / `forbidden` | **Invalid** token, or access level too low for the operation (e.g. write with a `read`-level access — re-auth with `contribute`) |
+| 403    | `invalid-access-token` / `forbidden` | **Invalid** token, access level too low (e.g. write with a `read` access — re-auth with `contribute`), **or** attempting to create a top-level root stream with an app/shared token — see the root note below |
 | 404    | `unknown-resource`          | Unknown user/resource                                     |
 | 5xx    | `unexpected-error`          | Server-side error                                         |
 
 Match on the error `id`, not only the status — body shape:
 `{ "error": { "id": "<error-id>", "message": "..." } }`.
+
+**Sharp edge — the read trap (`events.get` + an unknown stream).** If the
+`streams:` filter of an `events.get` lists **any** stream that doesn't exist
+on the account, the call returns a single `unknown-referenced-resource`
+error and **zero** events — it does NOT ignore the unknown stream or return
+a partial result. So an app that queries its full stream set reads *nothing*
+until every one of those streams exists, even ones that already have data.
+**Fix:** provision the complete stream tree once at sign-in
+(`StreamsAutoCreate.ensureExistsForItems(APP_ITEM_KEYS)`) before the first
+read, and derive both the create set and the read filter from the model
+(§3). This single behaviour is what made both early apps show "no data"
+despite successful writes.
+
+**Sharp edge — roots and `defaultName` provisioning.** (1) An app/shared
+token **cannot** create a top-level root stream: `streams.create` with
+`parentId: null` returns `forbidden` even with `manage` on that exact
+streamId. (2) Requesting a permission with a `defaultName` provisions that
+root — but **only on the INITIAL authorization**. Adding a new root
+permission to an already-granted access (the consent screen's "Update
+permissions" path) updates permissions but does **not** create the new
+root, so writes to it fail with `unknown-referenced-resource`. Ship every
+root your app will ever need in the first OAuth scope, or migrate existing
+users by revoking + re-authorizing (an app token can self-revoke via
+`accesses.delete`, which cascades to its child shared accesses).
 
 ---
 
@@ -1020,7 +1266,10 @@ Match on the error `id`, not only the status — body shape:
   control. Don't present HDS-retrieved values as medical advice.
 - The MCP does not store credentials. Each session re-OAuths.
 - The MCP and `hds-lib` do not invent items. If the user's data does not
-  match any item in `pack.json`, surface that to the user before writing.
+  match any item in `pack.json`, surface that to the user before writing —
+  then either define a custom itemDef via `initHDSModel({ overload })` and
+  propose it upstream (§3), or pick a fitting event-type; never hand-write
+  loose `streamId`/`eventType` strings or dump structured data into `note/txt`.
 - `hds-forms-js` (the React form-renderer library) is not currently
   CDN-loadable as a standalone bundle. For forms UIs, build a Vite/React
   app and consume the npm package directly. The single-HTML pattern uses
