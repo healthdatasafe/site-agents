@@ -199,7 +199,9 @@ from universal HDS data:
 │   ├── {app-id}-raw-error
 │   └── {app-id}-raw-converted
 └── {app-id}-app/                APP — app-contextual content
-    └── {app-id}-app-notes       free text notes from this source
+    ├── {app-id}-app-notes       free text notes from this source
+    ├── {app-id}-app-chat        chat messages with this connection
+    └── {app-id}-app-sync        how far this app has synced
 ```
 
 The access token created for each app declares its app stream in
@@ -207,6 +209,23 @@ The access token created for each app declares its app stream in
 by the originating app. App streams use standard event types
 (`note/txt`, `message/...`) — no custom HDS items needed for app-contextual
 content.
+
+The suffixes are **published**, not conventional: read them from
+`appStreams` in the model pack rather than hardcoding them. Each entry gives
+its `suffix`, `eventType`, labels and a `display` hint. As of data-model
+3.4.0 they are `notes`, `chat`, `sync`, `webapp-settings`, and the
+account-level `system-out` / `system-in` pair.
+
+**Sync state has a standard home (`sync`).** An app syncing into the user's
+own account records how far it has synced there, as a single recurring
+`sync-status/bridge` event updated in place — set `content.syncedUntil` so a
+viewer can generically show "last synced from &lt;app&gt;". Do not invent a
+private suffix for this: before 3.4.0 there was no standard place, and every
+integration chose its own, which is what this entry fixes.
+
+Bridges are the exception and do not use it: a bridge owns one HDS account
+with a stream per partner user, so it writes its watermark to that per-user
+stream instead (`lib-bridge-js` does this for you).
 
 ---
 
