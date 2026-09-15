@@ -27,14 +27,19 @@ npm install git+https://github.com/healthdatasafe/hds-lib-js.git
 Then `import * as HDSLib from 'hds-lib'` in your code.
 
 :::caution[Do not load `hds-lib.js` from a CDN script tag]
-Pryv OAuth refuses non-HTTPS origins, so a plain HTML file at `file://` or
-`http://localhost` cannot complete sign-in. The gh-pages bundle at
+The `hds-lib` sign-in button runs sign-in **inside your page**, so a plain
+HTML file at `file://` cannot complete it. The gh-pages bundle at
 `healthdatasafe.github.io/hds-lib-js/hds-lib.js` exists for the project's
 own demo pages — it is **not** a supported consumer entry point. Always
 `npm install` + bundle, and front the dev server with
 [`backloop.dev`](https://backloop.dev) for HTTPS (see the
 [`llms-full.txt`](/llms-full.txt) "Developing with Claude Code" section for
 the full recipe).
+
+This applies to **this** flow. If you are integrating from a non-JS backend,
+the auth-request + server-side key-exchange flow imposes nothing on your
+origin — your backend can run on plain `http://127.0.0.1` with no TLS and no
+tunnel. See [`llms-full.txt`](/llms-full.txt) §4c.
 :::
 
 :::caution[Never add raw `pryv` alongside `hds-lib`]

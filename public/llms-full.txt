@@ -461,15 +461,22 @@ npm install git+https://github.com/healthdatasafe/hds-lib-js.git
 ```
 
 A built dev server (e.g. `npm run dev` → http://localhost:5173) is what
-you'll front with `backloop.dev` (§4b-i) to get the HTTPS origin Pryv OAuth
-requires.
+you'll front with `backloop.dev` (§4b-i) to get the HTTPS origin the
+`hds-lib` sign-in button needs. This applies to **this** flow, where sign-in
+runs in the caller's page; the server-side auth-request flow in §4c has no
+such requirement (see the note there).
 
 > **Do not** load `hds-lib.js` from a CDN inside a plain HTML file
 > (`file://` or `http://localhost`). That recipe looks tempting but fails
-> the moment OAuth runs — Pryv refuses non-HTTPS origins, and the gh-pages
-> bundle (`https://healthdatasafe.github.io/hds-lib-js/hds-lib.js`) is
-> there for the project's own demo pages, not as a supported consumer
-> entry point. Always install + bundle.
+> the moment the `hds-lib` sign-in flow runs from a `file://` origin, and
+> the gh-pages bundle
+> (`https://healthdatasafe.github.io/hds-lib-js/hds-lib.js`) is there for
+> the project's own demo pages, not as a supported consumer entry point.
+> Always install + bundle.
+>
+> Scope: this is about **this** flow. A non-JS backend using the
+> auth-request + server-side key-exchange flow (§4c) does not need TLS on
+> its own origin at all — see the note in §4c.
 
 **Canonical provision→write→read pattern** — what every agent should reach
 for. Drive all three off the item keys your app uses; never hand-write a
@@ -658,6 +665,21 @@ the user) and a `poll` URL → poll until `status` becomes `ACCEPTED`
 https://cklm9z6yp00031a3v5kxz9q3m@demo.datasafe.dev/jane/
 ```
 
+> **Your origin does not need TLS for this flow.** The HTTPS-origin
+> requirement stated in §4b / §5b belongs to the `hds-lib` sign-in button,
+> which runs sign-in inside your page. Here it does not apply: the
+> auth-request body carries no `returnURL` and no origin, the user signs in
+> on the HDS domain (you just open `authUrl`), and the key is exchanged
+> from your server — so your scheme never reaches HDS. Verified end to end
+> on 2026-09-15 with PHP + vanilla JS on `http://127.0.0.1:8870`, no TLS,
+> no tunnel: auth request → `NEED_SIGNIN`, sign-in page renders, backend
+> polls to `ACCEPTED`, then connect / write / disconnect all succeed.
+>
+> Two caveats worth keeping. Browsers treat `127.0.0.1` and `localhost` as
+> secure contexts, so nothing degrades client-side either. And **serve
+> production pages over HTTPS regardless** — that advice stands on its own
+> merits, it is simply not a precondition of this flow.
+
 The token is in the URL's userinfo segment (before `@`). The host portion
 after `@` is the API host from step 1.
 
@@ -769,7 +791,8 @@ end-to-end if filesystem + vision are available in the client.
 
 A small Vite project that signs the user in to HDS demo and logs a
 body-weight event. Three files. Run via `npm run dev`, then front with
-`backloop.dev` to get the HTTPS origin Pryv OAuth needs.
+`backloop.dev` to get the HTTPS origin the `hds-lib` sign-in flow needs
+(not required for the §4c server-side flow).
 
 **Bootstrap:**
 
@@ -897,10 +920,15 @@ Port 7855 is chosen here to dodge collision with the canonical default
 7854 (often already taken by an existing backloop instance). For the full
 port-collision rule, see §4b-i.
 
-Why this shape (vs. a plain HTML file + CDN script tag): Pryv OAuth refuses
-non-HTTPS origins, and `file://` / `http://localhost` won't satisfy it.
-`backloop.dev` puts a publicly-trusted `*.backloop.dev` cert in front of
-your localhost dev server, so OAuth works.
+Why this shape (vs. a plain HTML file + CDN script tag): the `hds-lib`
+sign-in button runs the flow **inside your page**, so a `file://` origin
+does not work. `backloop.dev` puts a publicly-trusted `*.backloop.dev` cert
+in front of your localhost dev server, which is the simplest way to develop
+against a setup that matches production.
+
+This requirement belongs to **this** flow. It is not a property of HDS
+sign-in in general: the §4c auth-request flow, where the backend exchanges
+a key server-side, imposes nothing on the caller's origin — see §4c.
 
 ### 5b-multi. `hds-lib` — a real multi-item app (provision → write → read)
 
