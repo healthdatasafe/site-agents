@@ -861,7 +861,10 @@ let connection = null;
 let item = null;
 
 // setupAuth() replaces the <span> with a Pryv-styled sign-in button.
-// The popup opens to demo.datasafe.dev; the user signs in there.
+// Clicking it opens a popup on demo.datasafe.dev; the user signs in there.
+// No returnURL: a full-page redirect does not redeem the one-time hand-off
+// key (lib-js 3.13.0), so an app that must redirect (authRequest.returnURL)
+// has to set authRequest.credentialHandoff: 'inline'.
 HDSLib.pryv.Browser.setupAuth({
   authRequest: {
     requestingAppId: 'hds-hello',
@@ -870,8 +873,7 @@ HDSLib.pryv.Browser.setupAuth({
       // streamId — discover keys at model-browser.datasafe.dev, via the
       // MCP's search_items, or by scanning pack.json items.
       { streamId: 'body-weight', defaultName: 'Body weight', level: 'manage' }
-    ],
-    returnURL: 'self#'
+    ]
   },
   onStateChange: async (state) => {
     if (state.id === HDSLib.pryv.Browser.AuthStates.AUTHORIZED) {
