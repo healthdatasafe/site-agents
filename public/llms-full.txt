@@ -8,7 +8,8 @@ AI agent helping a user with HDS, read this once at session start.
 Canonical URL: https://agents.datasafe.dev/llms-full.txt
 (moved 2026-06-11 from docs.datasafe.dev/developers/llms-full.txt — update
 your pointers; the old URL serves a redirect note)
-Last updated: 2026-06-19 (itemDef-first rewritten as an end-to-end
+Last updated: 2026-10-05 (§4d partner services: /connect easy-connect + connector status.
+2026-06-19: itemDef-first rewritten as an end-to-end
 provision→write→read rule with StreamsAutoCreate + getNecessaryListForItems;
 anti-pattern box; custom-itemDef-via-overload path; multi-item worked
 example §5b-multi; coach↔patient sharing §5e; events.get read trap + root
@@ -772,6 +773,44 @@ Full Pryv API reference: https://pryv.github.io/reference/. The HDS service
 speaks the same protocol — HDS layers the data model on top.
 
 ---
+
+### 4d. Partner services (easy-connect): connect a user's Mira / Tempdrop and show its status
+
+Connectors (bridges) import a partner service's data into the user's account. An app NEVER calls a bridge: it
+links to one HDS page, and reads the connector's status from the user's own account.
+
+Which connectors: the catalogue `apps/list.json` (service info `assets.definitions`). Usable entries have
+`hook.initiate`: `bridge-mira` (demo + prod), `bridge-tempdrop` (prod only). Each entry has `statusStreamId`
+(e.g. `sync-status-mira`): read it from there, never derive it.
+
+Connect / reconnect / disconnect (browser navigation, no registration):
+
+    https://account.hds.ngo/connect?app=<catalogue id>&returnUrl=<https URL>&state=<nonce>[&action=connect|reconnect|disconnect]
+    (demo: https://demo-account.datasafe.dev/connect?...)
+
+- `returnUrl`: any absolute https URL without credentials. `state` <= 1024 chars, echoed back. `action` defaults
+  to `connect`.
+- The user signs in to HDS if needed, confirms a card naming the connector and your host, then (connect /
+  reconnect) signs in to the partner. Already connected + `connect` = "already connected" card, no second
+  connection. `disconnect` revokes the connector's access and sets the status `disconnected`.
+- Answer on `returnUrl`: `state`, `app`, `action` (the action actually run), `result` = `connected` |
+  `disconnected` | `cancelled` | `error`, and `reason` on cancelled/error: `user-cancelled`, `partner-denied`,
+  `partner-error`, `bridge-unavailable`, `hds-error`, `offer-invalid`, `session-lost`, `cmc-*`. Unknown id =
+  generic error. Nothing sensitive comes back (no token, apiEndpoint or link).
+- A request HDS cannot run shows an HDS error page with a "Return to <host>" link (`result=error`, reason
+  `app-unknown` | `app-paused` | `invalid-request` | `catalogue-unavailable` | `hds-error`).
+
+Status (data-model item `sync-status`, `type: system`): request READ on the connector's leaf only at sign-in,
+never on the `sync-status` root:
+
+    model.authorizations.forItemKeys(itemKeys, { preRequest: [{ streamId: 'sync-status-mira', level: 'read' }] })
+
+then `events.get { streams: ['sync-status-mira'], types: ['sync-status/connector-v1'], limit: 1 }`. Content:
+`status` (`active` | `needs-reauth` | `error` | `disconnected`; unknown value = unknown), `connectedAt`,
+`lastRunAt`, `lastSuccessAt`, optional `syncedUntil`, `lastError { class: auth|upstream|hds|other, code, at }`
+(operator codes, never partner text). Unix seconds. No event, or `unknown-referenced-resource` = not connected.
+UI: Connect when not connected / `disconnected`; Reconnect on `needs-reauth`; Disconnect when connected.
+Spec: data-model documentation/SYNC-STATUS.md. Page: https://agents.datasafe.dev/partner-services/
 
 ## 5. Worked examples
 

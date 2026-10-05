@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- **Partner services (easy-connect)** page and `llms-full.txt` §4d: how an app connects, reconnects or
+  disconnects a user's Mira / Tempdrop through the account app's `/connect`, the answer it gets back, and how it
+  reads the connector's status from the user's account (`sync-status-<connector>`, `sync-status/connector-v1`).
+  Never calling a bridge. (site-agents#19)
+
 ### Fixed
 - **The HTTPS-origin requirement is now scoped to the flow it belongs to**
   (`llms-full.txt` §4b, §4b-i, §5b, plus a new note in §4c). It was stated as a

@@ -28,6 +28,7 @@ export default defineConfig({
             { label: 'Connect & permissions', slug: 'connect' },
             { label: 'Recording data right', slug: 'data' },
             { label: 'Building apps (hds-lib)', slug: 'build' },
+            { label: 'Partner services (easy-connect)', slug: 'partner-services' },
             { label: 'Feedback & issues', slug: 'feedback' },
           ],
         },

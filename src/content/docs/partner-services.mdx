@@ -1,0 +1,114 @@
+---
+title: Partner services (easy-connect)
+description: Let your app connect, reconnect or disconnect a user's partner service (Mira, Tempdrop) through one HDS page, and show its sync status from the user's own account.
+---
+
+Some data reaches HDS through **connectors**: bridges that import a partner service's data (Mira hormones
+and cycles, Tempdrop basal body temperature) into the user's account. Your app can offer "Connect your Mira
+account" without running the connector itself, and show whether it is working.
+
+Two rules:
+
+- **Your app never talks to a bridge.** It links to one HDS page, `/connect`, which does the rest.
+- **Connector status lives in the user's account.** Your app reads it with an ordinary `read` permission.
+
+## Which connectors
+
+The operator catalogue lists them: `apps/list.json`, reachable from the platform's service info
+(`assets.definitions`). A connector your app can use through `/connect` is an entry with a `hook.initiate`;
+today **`bridge-mira`** (demo and prod) and **`bridge-tempdrop`** (prod only: Tempdrop has no sandbox). Each
+entry carries its name, icon, a `paused` flag, and **`statusStreamId`**: the stream where its status lives
+(`bridge-mira` → `sync-status-mira`). Read the stream id from there; do not derive it from the app id.
+
+## Connect, reconnect, disconnect
+
+Send the user's browser to:
+
+```
+https://account.hds.ngo/connect?app=<catalogue id>&returnUrl=<your https URL>&state=<nonce>[&action=connect|reconnect|disconnect]
+```
+
+Demo: `https://demo-account.datasafe.dev/connect?…`
+
+| parameter | |
+|---|---|
+| `app` | The catalogue id, e.g. `bridge-mira`. |
+| `returnUrl` | Where the answer goes: any absolute **https** URL without credentials. No registration. |
+| `state` | Your nonce (≤ 1024 characters), echoed back unchanged. Check it on return. |
+| `action` | `connect` (default), `reconnect` or `disconnect`. |
+
+The user signs in to HDS (or creates an account) if needed, sees a confirmation card naming the connector and
+**your host**, and nothing happens before they click. Then:
+
+- **connect**: the user signs in to the partner and consents; HDS grants the connector the access it needs.
+  If the service is already connected, the user sees "already connected" and can finish or reconnect: no
+  second connection is made.
+- **reconnect**: the user signs in to the partner again on the existing connection (use it when the status
+  says `needs-reauth`).
+- **disconnect**: after the user confirms, HDS stops the connector, revokes its access and sets the status to
+  `disconnected`. Data already imported stays in the user's account.
+
+### The answer
+
+The browser comes back to `returnUrl` with these query parameters (any of the same name you put in
+`returnUrl` are replaced):
+
+| parameter | values |
+|---|---|
+| `state` | your nonce |
+| `app` | the catalogue id |
+| `action` | the action actually run: a `connect` on a connected service can answer `reconnect` |
+| `result` | `connected`, `disconnected`, `cancelled` or `error` |
+| `reason` | on `cancelled` and `error` only: a stable id |
+
+Reasons: `user-cancelled`, `partner-denied` (the user refused at the partner), `partner-error`,
+`bridge-unavailable`, `hds-error`, `offer-invalid`, `session-lost`, and the accept's own `cmc-*` ids. Treat an
+id you do not know as a generic error.
+
+**Nothing sensitive comes back**: no token, no apiEndpoint, no link. Your app gets an outcome only; the
+connector's access goes to the connector.
+
+A request HDS cannot run (unknown or paused connector, malformed request, catalogue unavailable) shows an HDS
+error page with a "Return to &lt;your host&gt;" link carrying `result=error&reason=…` (`app-unknown`,
+`app-paused`, `invalid-request`, `catalogue-unavailable`, `hds-error`). A `returnUrl` that is not https gets
+an error page with no link.
+
+## Show the status
+
+Request **`read` on the connector's status stream only** when your app signs in. With hds-lib:
+
+```js
+const permissions = model.authorizations.forItemKeys(myItemKeys, {
+  preRequest: [{ streamId: 'sync-status-mira', level: 'read' }] // the catalogue entry's statusStreamId
+});
+```
+
+Never request the `sync-status` root: that would show you every service the user has connected. The stream
+is created in its place in the user's account on sign-in, so you can request it before the user connects.
+
+Then read the one status event:
+
+```js
+const [res] = await connection.api([{ method: 'events.get', params: {
+  streams: ['sync-status-mira'], types: ['sync-status/connector-v1'], limit: 1 } }]);
+const status = res.events?.[0]?.content; // undefined = not connected
+```
+
+| field | meaning |
+|---|---|
+| `status` | `active`, `needs-reauth`, `error` or `disconnected`. Show any other value as unknown. |
+| `connectedAt` | when the current connection was made |
+| `lastRunAt` / `lastSuccessAt` | last sync attempt / last successful sync |
+| `syncedUntil` | how far the partner data goes, when the connector knows it |
+| `lastError` | `{ class: auth / upstream / hds / other, code, at }`: `code` is a short operator code, never partner text |
+
+Times are Unix seconds. **No event, or `unknown-referenced-resource` on the stream, means not connected.**
+
+A simple UI: **Connect** when not connected or `disconnected`; **Reconnect** when `needs-reauth`; last sync from
+`lastSuccessAt`; **Disconnect** when connected.
+
+Mira and Tempdrop publish their status. A Tempdrop user connected before 2026-10-05 has no status event until
+they reconnect once through `/connect`.
+
+Full specification: data-model
+[`SYNC-STATUS.md`](https://github.com/healthdatasafe/data-model/blob/main/documentation/SYNC-STATUS.md).
