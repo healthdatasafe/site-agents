@@ -8,7 +8,9 @@ AI agent helping a user with HDS, read this once at session start.
 Canonical URL: https://agents.datasafe.dev/llms-full.txt
 (moved 2026-06-11 from docs.datasafe.dev/developers/llms-full.txt — update
 your pointers; the old URL serves a redirect note)
-Last updated: 2026-10-05 (§4d partner services: /connect easy-connect + connector status.
+Last updated: 2026-10-28 (§5f bulk imports: sourceKey, dedicated scoped
+access, write order, re-run and removal by sourceKey prefix.
+2026-10-05: §4d partner services: /connect easy-connect + connector status.
 2026-06-19: itemDef-first rewritten as an end-to-end
 provision→write→read rule with StreamsAutoCreate + getNecessaryListForItems;
 anti-pattern box; custom-itemDef-via-overload path; multi-item worked
@@ -1243,6 +1245,75 @@ Notes: per-stream `read` scoping means the coach sees only the shared
 roots. An **app token can self-revoke** via `accesses.delete` on its own
 access, and that **cascades to child shared accesses** it created — useful
 for the GAP-007 re-authorization migration (§7).
+
+### 5f. Bulk imports — provenance and re-run contract
+
+For any program that imports a batch of records into a user's account (an
+archive of medical letters, an export from another app, a folder of lab
+reports) and may run again. Bridges already follow it. The contract makes
+a re-run safe (no duplicates), the import traceable (who wrote what), and
+removable (one query finds it all).
+
+1. **Tag every event with `clientData.sourceKey = "<tool>:<kind>:<id>"`.**
+   `<tool>` is the importer's stable lowercase name (no `:`), `<id>` the
+   record's own identity in the source, the SAME on every run (derive it
+   from the source, never from the run: no import timestamps, no
+   counters). One event per key. No names or national/insurance numbers in
+   the key: it is readable by everyone who can read the event. Defined in
+   the data model: https://github.com/healthdatasafe/data-model/blob/main/documentation/PROVENANCE.md
+2. **One dedicated access for the import.** Sign in once for the importer
+   (its own `requestingAppId`), so `createdBy` on every event names the
+   import and nothing else. Don't reuse the user's personal token or
+   another app's access.
+3. **Scoped app access, `manage` on exactly the roots written.** The auth
+   request lists each root stream the import writes (with `defaultName`
+   for roots that may not exist yet — they are provisioned **only on the
+   initial authorization**, §7), level `manage` so the import can create
+   the item streams under them (§3 provisioning). **No `*` permission.**
+   (The MCP's `connect` still requests `*`, §2 Accesses: for a bulk import
+   that must be scoped, use `hds-lib` or REST.)
+4. **Write sources first, then the events that cite them.** A document,
+   a provider or an encounter is written before the values read from it,
+   because the citing event needs the source's event id
+   (`clientData.related.<eventId>: true`, and typed ids in content where
+   the item defines them).
+5. **Re-run = update in place by `sourceKey`.** Read the import's existing
+   events once, map them by key, then create the new keys, update the
+   changed ones, and leave the rest:
+
+```js
+// All events this tool wrote. Give a time range (or a limit): without one,
+// events.get returns only the 20 most recent. Records of the past can be
+// pre-1970 (negative time).
+const [res] = await connection.api([{ method: 'events.get', params: {
+  streams: IMPORT_ROOTS,
+  fromTime: -2208988800, toTime: 4102444800,   // 1900 … 2100
+  state: 'all',                                // trashed events keep their key too
+  clientData: [{ path: 'sourceKey', prefix: 'healthfiles:' }]
+} }]);
+const byKey = new Map(res.events.map(e => [e.clientData.sourceKey, e]));
+// For each record: no event → events.create; a trashed event → leave it (the
+// user removed it); otherwise events.update if changed.
+```
+
+   **Never bring back what the user removed:** a trashed event is left
+   trashed. An event deleted for good can no longer be found by its key, so
+   a re-run writes it again; an importer that must avoid that keeps its own
+   list of the keys it wrote.
+
+6. **Removing an import = the same query, then `events.delete`** on each
+   event (the first call trashes it, a second call deletes it for good).
+   Remove the citing events before their sources.
+
+`clientData` conditions (`eq`, `prefix`, `exists`, …, at most 10 per call)
+work on the account's own storage; a call that targets a store which does
+not support them is refused with `invalid-operation` rather than answered
+unfiltered.
+
+Dates known only to the month or the year: data-model
+`documentation/PARTIAL-DATES.md` (`clientData.hdsTimePrecision`).
+Printed lab ranges and flags: `documentation/BLOOD-CHEMISTRY.md`
+(`clientData.hdsRefRange`, `hdsFlag`, `hdsInterpretation`).
 
 ---
 
