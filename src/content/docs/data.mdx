@@ -58,6 +58,33 @@ The expected investigation order:
 If your agent reaches for notes as the easy way out, push back — and
 expect it to push back on you, too.
 
+## Bulk imports: safe to run twice, easy to remove
+
+An import of an archive (letters, lab reports, another app's export) will
+be run again: the source grows, a mapping gets fixed. It must update what
+it wrote rather than duplicate it, and the whole import must be findable
+and removable. The contract (details and code in
+[llms-full.txt §5f](/llms-full.txt)):
+
+1. **Every imported event carries `clientData.sourceKey`**, written
+   `<tool>:<kind>:<id>`: the importer's name, the kind of record, and the
+   record's own identity in the source, the same on every run.
+2. **The import has its own access**, so each event's author names it.
+3. **That access is scoped**: `manage` on exactly the root streams it
+   writes, never on everything (`*`).
+4. **Sources first**: the document or the provider is written before the
+   values that cite it.
+5. **A re-run updates in place** by `sourceKey`, and **removing the import**
+   is one query on the `sourceKey` prefix (`<tool>:`) followed by deleting
+   what it returns.
+
+Dates known only to the month or the year ("March 1999"), and the range and
+flag a lab printed beside a value, have their own conventions in the data
+model:
+[PARTIAL-DATES.md](https://github.com/healthdatasafe/data-model/blob/main/documentation/PARTIAL-DATES.md)
+and
+[BLOOD-CHEMISTRY.md](https://github.com/healthdatasafe/data-model/blob/main/documentation/BLOOD-CHEMISTRY.md).
+
 ## Worked pilot — fertility-charts folder → HDS
 
 You drop a folder of Excel sheets and scanned paper from fertility charting
