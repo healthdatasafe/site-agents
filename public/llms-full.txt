@@ -59,8 +59,11 @@ compose those events across sources.
 | demo  | https://demo.datasafe.dev/reg/service/info  | demo.datasafe.dev/{username}/ |
 | prod  | https://reg.api.datasafe.dev/service/info   | *.api.datasafe.dev |
 
-Default for any agent flow is **demo**. Production writes are gated off in
-the MCP server until the operator opts in.
+Default for any agent flow is **demo**. On production the MCP server
+refuses writes unless the user explicitly asked for them: the agent then
+opens the session with `connect({ host: "prod", enableWrites: true })` and
+the user confirms on the consent screen. The unlock lasts for that session
+only (see § 6).
 
 ---
 
@@ -406,7 +409,7 @@ point at the built output instead (`npm install` builds it):
 `{ "command": "node", "args": ["/absolute/path/to/hds-mcp-js/dist/index.js"] }`
 — re-run `npm run build` after editing `src/`.
 
-**Tool catalogue (v0.1.0, all tier=essential):** `connect`,
+**Tool catalogue (v0.2.0, all tier=essential):** `connect`,
 `list_streams`, `get_events`, `search_items`, `get_item`, `create_event`,
 `import_batch`. (Naming: tool names are these bare strings; prose like
 `hds.connect` just prefixes the server alias from the client config —
@@ -419,6 +422,20 @@ production unless the session was opened with
 `connect({ host: "prod", enableWrites: true })` — pass `enableWrites`
 ONLY when the user explicitly asked to write to their real production
 account, never on your own initiative.
+
+**Writing (since v0.2.0).** `get_item` returns the item's eventType (or its
+unit choices) with the **content schema** of each eventType and the
+data-model version. `create_event` and `import_batch` take optional
+`description` (short text every HDS app shows) and `clientData` (the
+data-model conventions: `sourceKey` / `related` from § 5f, `hdsTimePrecision`
+for partial dates, `hdsRefRange` / `hdsFlag` / `hdsComparator` for lab
+values as printed). Content is checked against the eventType schema
+**before** writing: an unknown type, invalid content, or a type that needs
+an attachment (`file/xds-v1`, `*/attached`; not uploadable through the MCP
+yet) is refused with nothing written, and one bad event refuses the whole
+batch. `import_batch` returns the created event ids **in input order**
+(`null` where the core refused one), so sources can be written first and
+later events can cite them.
 
 Full per-tool descriptions, error shapes, itemDef-first priming rules,
 and extension guide live in
@@ -1346,6 +1363,17 @@ Printed lab ranges and flags: `documentation/BLOOD-CHEMISTRY.md`
   unlock dies with the session (client restart → back to safe).
   `HDS_MCP_PROD_WRITES_ENABLED=true` in the MCP's environment is a
   global override (operator use). Reads on prod work unconditionally.
+- **Say who sees what before reading any record.** Everything an agent
+  reads (pages, scans, OCR text, `get_events` results) goes to its model
+  provider; no MCP setting changes that. Before the first record is read,
+  and again before the first read of a production account (reads need no
+  unlock), tell the user: the model provider sees what you read; their HDS
+  account keeps what is written, and apps they grant later see the granted
+  parts, including free-text titles, notes, provider names and the
+  `sourceKey` / `hdsTimeText` references every reader can see; local
+  processing stays local unless you read its output; a provider that does
+  not train on their data, or a local model, is the safer choice; they can
+  stop at any point. `bootstrap.txt` step 4 has the plain-language version.
 - **Token scrubbing (MCP only).** All log, error, and telemetry paths in
   the MCP run through a scrubber that redacts the token portion of any
   apiEndpoint URL (`https://TOKEN@host` → `https://***@host`). `hds-lib`
@@ -1365,7 +1393,7 @@ Printed lab ranges and flags: `documentation/BLOOD-CHEMISTRY.md`
 
 ## 7. Error shapes
 
-### MCP errors (verbatim, as of v0.1.0)
+### MCP errors (verbatim, as of v0.2.0)
 
 | Trigger                                       | Message                                                                                  |
 |-----------------------------------------------|------------------------------------------------------------------------------------------|
@@ -1378,6 +1406,11 @@ Printed lab ranges and flags: `documentation/BLOOD-CHEMISTRY.md`
 | Pryv API (POST) error                         | ``Pryv POST <path> failed: <upstream message>``                                          |
 | Pryv batch error                              | ``Pryv batch failed: <upstream message>``                                                |
 | Item key not found in pack.json               | ``No HDS item found for key "X".`` (with optional ``Did you mean one of: ...?`` hint)    |
+| `create_event`: type or content invalid       | ``Event refused, nothing written: <problems>``                                           |
+| `import_batch`: any event invalid             | ``Batch refused, nothing written: N problem(s).`` then one ``- [index] <problem>`` line each |
+| Problem: type not in the data model           | ``Unknown event type "X": not in the HDS data model (data-model <version>). Use the eventType from get_item.`` |
+| Problem: type needs an attachment             | ``Event type "X" needs an attachment, which this MCP cannot upload yet.``                |
+| Problem: content does not match the schema    | ``content<path> <message> (<params>)``, e.g. ``content must be number ({"type":"number"})`` |
 
 ### Pryv API (HDS backend) status codes (verified live on demo, 2026-06-10)
 

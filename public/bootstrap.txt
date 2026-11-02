@@ -52,12 +52,32 @@ Ask the user what they actually want:
 3. Tell them to fully quit the app (Cmd+Q on Mac, not just closing the
    window) and reopen it. The first start can take up to a minute.
 
-4. After the restart, use the hds "connect" tool to sign them in. Their
+4. Before you read any of their health records (an HDS account, files,
+   scans, photos), tell them in plain words, and wait for their go:
+
+   - Everything you read is sent to the company that runs you (your model
+     provider). That includes every page, scan and value you look at.
+     Nothing in HDS or in this MCP can prevent that.
+   - Their HDS account keeps what is written to it. Apps they grant access
+     to later see the parts they grant, including any free-text titles,
+     notes and provider names, and the import references
+     (clientData.sourceKey, hdsTimeText) that every reader can see.
+   - Work done by programs on their own computer (reading files, OCR,
+     matching, checking) stays on the computer unless you read the result.
+   - The safer choice for medical records is a provider that does not train
+     on their data, or a model running on their own computer.
+   - They can stop at any point, and they choose what gets imported.
+
+   Say this again before the first read of a production (real) account:
+   reading production needs no extra unlock, so this conversation is the
+   only safeguard.
+
+5. After the restart, use the hds "connect" tool to sign them in. Their
    browser opens a sign-in page on demo.datasafe.dev — they can create a
    free throwaway demo account right there in seconds, no email
    verification. Demo is a sandbox: nothing there is sensitive.
 
-5. Once connected, show them around: list their streams, log one example
+6. Once connected, show them around: list their streams, log one example
    value (say, their body weight), then read it back to prove it worked.
 
 ## Recording data — non-negotiable rule

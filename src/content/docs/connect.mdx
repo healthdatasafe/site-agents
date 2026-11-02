@@ -82,5 +82,10 @@ are created from the model after sign-in (see [Building apps](/build/)).
   `create_event` and `import_batch` refuse on production. Reads
   (`list_streams`, `get_events`, `search_items`, `get_item`) work on
   production unconditionally.
+- **Your agent's provider sees what it reads.** Every record, scan or value
+  the agent reads is sent to the company that runs the agent. A provider
+  that does not train on your data, or a model on your own computer, is the
+  safer choice for medical records. The agent should tell you this before
+  reading anything, and you can stop at any point.
 - **Logging hygiene.** All log, error, and telemetry paths run through a
   centralised scrubber that redacts the token portion of any apiEndpoint URL.

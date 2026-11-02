@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Added
+- **Privacy disclosure before reading records** (site-agents#36 A1): `bootstrap.txt` step 4, `llms-full.txt` §6 and
+  the Connect page say what the agent must tell the person before reading any record (the model provider sees what it
+  reads, what the account and later apps see, what stays local, the safer provider choice) and to repeat it before the
+  first production read.
+- **MCP 0.2.0** in `llms-full.txt` §4a and §7: content schemas from `get_item`, `description` / `clientData` on the
+  write tools, validation before writing, ids returned in order, the new refusal messages (site-agents#36 A2).
 - **Partner services (easy-connect)** page and `llms-full.txt` §4d: how an app connects, reconnects or
   disconnects a user's Mira / Tempdrop through the account app's `/connect`, the answer it gets back, and how it
   reads the connector's status from the user's account (`sync-status-<connector>`, `sync-status/connector-v1`).
