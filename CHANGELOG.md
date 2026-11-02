@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- **MCP 0.3.0** in `llms-full.txt` §4a, §6 and §7: data model and datasets read tools (code and French-label item
+  search, `get_event_type`, `list_model_streams`, `list_datasources`, `search_dataset`), that dataset search text
+  reaches the HDS datasets service, and the new error messages.
 - **Privacy disclosure before reading records** (site-agents#36 A1): `bootstrap.txt` step 4, `llms-full.txt` §6 and
   the Connect page say what the agent must tell the person before reading any record (the model provider sees what it
   reads, what the account and later apps see, what stays local, the safer provider choice) and to repeat it before the

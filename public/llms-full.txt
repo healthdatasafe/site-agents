@@ -409,9 +409,10 @@ point at the built output instead (`npm install` builds it):
 `{ "command": "node", "args": ["/absolute/path/to/hds-mcp-js/dist/index.js"] }`
 — re-run `npm run build` after editing `src/`.
 
-**Tool catalogue (v0.2.0, all tier=essential):** `connect`,
-`list_streams`, `get_events`, `search_items`, `get_item`, `create_event`,
-`import_batch`. (Naming: tool names are these bare strings; prose like
+**Tool catalogue (v0.3.0, all tier=essential):** `connect`,
+`list_streams`, `get_events`, `search_items`, `get_item`,
+`get_event_type`, `list_model_streams`, `list_datasources`,
+`search_dataset`, `create_event`, `import_batch`. (Naming: tool names are these bare strings; prose like
 `hds.connect` just prefixes the server alias from the client config —
 `"hds"` in the snippet above.) Defaults: `connect` targets the `demo`
 host, requests **all streams** (`streamId: "*"`) at `contribute` level
@@ -422,6 +423,24 @@ production unless the session was opened with
 `connect({ host: "prod", enableWrites: true })` — pass `enableWrites`
 ONLY when the user explicitly asked to write to their real production
 account, never on your own initiative.
+
+**Reading the data model and datasets (since v0.3.0, no account
+needed).** `search_items` matches labels in every language the pack has
+(English, French; `lang` picks the one shown) and terminology codes: a
+LOINC, SNOMED-CT, ICD-10 or ICF code finds the item that owns it, so a lab
+value with an item of its own goes on that item, not on
+`lab-result/coded-v1`. Deprecated items are hidden unless
+`includeDeprecated: true`. `get_event_type` returns one eventType's
+content schema, unit and the items using it. `list_model_streams` browses
+the model's stream tree (the consent units) with the items per stream;
+`list_streams` remains the user's account. `list_datasources` and
+`search_dataset` look up coded entries (condition, finding, medication,
+procedure, treatment) for the `*-coded` items: copy the chosen entry's
+`label`, `description` and `codes` unchanged into the coded property of the
+content (`content.condition`, `content.drug`, `content.regimen`).
+`search_dataset` sends its search text to the HDS datasets service of the
+connected platform (demo when not connected); the lists are curated and
+incomplete, so a miss is reported, never filled with an invented code.
 
 **Writing (since v0.2.0).** `get_item` returns the item's eventType (or its
 unit choices) with the **content schema** of each eventType and the
@@ -1374,6 +1393,8 @@ Printed lab ranges and flags: `documentation/BLOOD-CHEMISTRY.md`
   processing stays local unless you read its output; a provider that does
   not train on their data, or a local model, is the safer choice; they can
   stop at any point. `bootstrap.txt` step 4 has the plain-language version.
+  `search_dataset` also sends its search text (a condition or drug name)
+  to the HDS datasets service; say so when the text names theirs.
 - **Token scrubbing (MCP only).** All log, error, and telemetry paths in
   the MCP run through a scrubber that redacts the token portion of any
   apiEndpoint URL (`https://TOKEN@host` → `https://***@host`). `hds-lib`
@@ -1393,7 +1414,7 @@ Printed lab ranges and flags: `documentation/BLOOD-CHEMISTRY.md`
 
 ## 7. Error shapes
 
-### MCP errors (verbatim, as of v0.2.0)
+### MCP errors (verbatim, as of v0.3.0)
 
 | Trigger                                       | Message                                                                                  |
 |-----------------------------------------------|------------------------------------------------------------------------------------------|
@@ -1411,6 +1432,11 @@ Printed lab ranges and flags: `documentation/BLOOD-CHEMISTRY.md`
 | Problem: type not in the data model           | ``Unknown event type "X": not in the HDS data model (data-model <version>). Use the eventType from get_item.`` |
 | Problem: type needs an attachment             | ``Event type "X" needs an attachment, which this MCP cannot upload yet.``                |
 | Problem: content does not match the schema    | ``content<path> <message> (<params>)``, e.g. ``content must be number ({"type":"number"})`` |
+| `get_event_type`: unknown type                | ``No HDS event type "X" in data-model <version>. Use search_items to find the item, then its eventType.`` |
+| `list_model_streams`: unknown parent          | ``No stream "X" in the HDS data model (data-model <version>).``                          |
+| `search_dataset`: unknown datasource          | ``No datasource "X" in data-model <version>. Available: <keys>.``                        |
+| `search_dataset`: text too short              | ``Search text too short for "X": at least N characters.``                                |
+| `search_dataset`: service error               | ``Dataset search failed: <upstream message>``                                            |
 
 ### Pryv API (HDS backend) status codes (verified live on demo, 2026-06-10)
 
