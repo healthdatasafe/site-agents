@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Added
+- **MCP 0.4.0** in `llms-full.txt` §4a, §5f and §7: scoped `connect` (`roots`, `importName`) and the read-back,
+  update and removal tools, so the §5f import contract can be followed through the MCP (site-agents#36 A3, A6).
 - **MCP 0.3.0** in `llms-full.txt` §4a, §6 and §7: data model and datasets read tools (code and French-label item
   search, `get_event_type`, `list_model_streams`, `list_datasources`, `search_dataset`), that dataset search text
   reaches the HDS datasets service, and the new error messages.
