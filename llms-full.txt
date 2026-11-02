@@ -409,16 +409,20 @@ point at the built output instead (`npm install` builds it):
 `{ "command": "node", "args": ["/absolute/path/to/hds-mcp-js/dist/index.js"] }`
 — re-run `npm run build` after editing `src/`.
 
-**Tool catalogue (v0.3.0, all tier=essential):** `connect`,
+**Tool catalogue (v0.4.0, all tier=essential):** `connect`,
 `list_streams`, `get_events`, `search_items`, `get_item`,
 `get_event_type`, `list_model_streams`, `list_datasources`,
-`search_dataset`, `create_event`, `import_batch`. (Naming: tool names are these bare strings; prose like
+`search_dataset`, `create_event`, `import_batch`, `ensure_streams`,
+`update_event`, `delete_events`. (Naming: tool names are these bare strings; prose like
 `hds.connect` just prefixes the server alias from the client config —
 `"hds"` in the snippet above.) Defaults: `connect` targets the `demo`
 host, requests **all streams** (`streamId: "*"`) at `contribute` level
 (read + write events — covers the pilot). Pass `host: "prod"` for
-production; `level: "read"` for a read-only session; per-stream scoping
-is not yet supported. `create_event` and `import_batch` refuse on
+production; `level: "read"` for a read-only session. Since v0.4.0,
+`roots: [{ streamId, level? }]` scopes the access to those root streams
+(default level `manage`, named from the data model, no `*`) and
+`importName` signs in as the import's own app access
+`hds-mcp-<importName>`: use both for any import (§ 5f). `create_event` and `import_batch` refuse on
 production unless the session was opened with
 `connect({ host: "prod", enableWrites: true })` — pass `enableWrites`
 ONLY when the user explicitly asked to write to their real production
@@ -1306,8 +1310,13 @@ removable (one query finds it all).
    for roots that may not exist yet — they are provisioned **only on the
    initial authorization**, §7), level `manage` so the import can create
    the item streams under them (§3 provisioning). **No `*` permission.**
-   (The MCP's `connect` still requests `*`, §2 Accesses: for a bulk import
-   that must be scoped, use `hds-lib` or REST.)
+   (Through the MCP, since v0.4.0: `connect({ roots: [...], importName })`
+   does 2 and 3; `ensure_streams` creates the item streams;
+   `get_events({ sourceKeyPrefix, state: 'all' })` is the read in 5;
+   `update_event` updates in place; `delete_events({ sourceKeyPrefix })`
+   is 6, previewed first. A large archive is still better built as a
+   package and sent by a local writer than passed through the model's
+   output, site-agents#36.)
 4. **Write sources first, then the events that cite them.** A document,
    a provider or an encounter is written before the values read from it,
    because the citing event needs the source's event id
@@ -1414,7 +1423,7 @@ Printed lab ranges and flags: `documentation/BLOOD-CHEMISTRY.md`
 
 ## 7. Error shapes
 
-### MCP errors (verbatim, as of v0.3.0)
+### MCP errors (verbatim, as of v0.4.0)
 
 | Trigger                                       | Message                                                                                  |
 |-----------------------------------------------|------------------------------------------------------------------------------------------|
@@ -1437,6 +1446,11 @@ Printed lab ranges and flags: `documentation/BLOOD-CHEMISTRY.md`
 | `search_dataset`: unknown datasource          | ``No datasource "X" in data-model <version>. Available: <keys>.``                        |
 | `search_dataset`: text too short              | ``Search text too short for "X": at least N characters.``                                |
 | `search_dataset`: service error               | ``Dataset search failed: <upstream message>``                                            |
+| `connect`: `*` in roots                       | ``roots must name streams; omit roots to request all data.``                             |
+| `update_event`: invalid content               | ``Update refused, nothing written: <problems>``                                          |
+| `update_event`: empty update                  | ``Nothing to update.``                                                                   |
+| `delete_events`: no target                    | ``Give ids or a sourceKeyPrefix.``                                                       |
+| `ensure_streams`: item stream not in model    | ``Stream "X" of item "Y" is not in the data-model stream tree.``                         |
 
 ### Pryv API (HDS backend) status codes (verified live on demo, 2026-06-10)
 
