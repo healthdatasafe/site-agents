@@ -133,6 +133,11 @@ lasts until you quit the client. Without your explicit ask,
 <code dir="auto">create_event</code> and <code dir="auto">import_batch</code> refuse on production. Reads
 (<code dir="auto">list_streams</code>, <code dir="auto">get_events</code>, <code dir="auto">search_items</code>, <code dir="auto">get_item</code>) work on
 production unconditionally.</li>
+<li><strong>Your agent’s provider sees what it reads.</strong> Every record, scan or value
+the agent reads is sent to the company that runs the agent. A provider
+that does not train on your data, or a model on your own computer, is the
+safer choice for medical records. The agent should tell you this before
+reading anything, and you can stop at any point.</li>
 <li><strong>Logging hygiene.</strong> All log, error, and telemetry paths run through a
 centralised scrubber that redacts the token portion of any apiEndpoint URL.</li>
 </ul> </div> <footer class="sl-flex astro-3yyafb3n"> <div class="meta sl-flex astro-3yyafb3n">   </div> <div class="pagination-links print:hidden astro-u2l5gyhi" dir="ltr">   </div>  </footer> </div> </div>  </main> </div> </div> </div> </div> </body></html>
