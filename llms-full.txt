@@ -415,10 +415,12 @@ point at the built output instead (`npm install` builds it):
 `list_streams`, `get_events`, `search_items`, `get_item`,
 `get_event_type`, `list_model_streams`, `list_datasources`,
 `search_dataset`, `create_event`, `import_batch`, `ensure_streams`,
-`update_event`, `delete_events`. (Naming: tool names are these bare strings; prose like
+`update_event`, `delete_events`, `get_connection`, `get_import_guide`,
+`report_missing_item`. (Naming: tool names are these bare strings; prose like
 `hds.connect` just prefixes the server alias from the client config —
 `"hds"` in the snippet above.) Defaults: `connect` targets the `demo`
-host, requests **all streams** (`streamId: "*"`) at `contribute` level
+host and, without `roots`, requests every data-model root (genetics left
+out: it needs its own explicit grant) at `contribute` level
 (read + write events — covers the pilot). Pass `host: "prod"` for
 production; `level: "read"` for a read-only session. Since v0.4.0,
 `roots: [{ streamId, level? }]` scopes the access to those root streams
@@ -429,6 +431,19 @@ production unless the session was opened with
 `connect({ host: "prod", enableWrites: true })` — pass `enableWrites`
 ONLY when the user explicitly asked to write to their real production
 account, never on your own initiative.
+
+**Demo or production, import guides, missing items (since v0.11.0, no
+account needed).** `get_connection` says which platform the session uses:
+production is the person's real health record, demo a test platform that
+can be wiped. Tell the person which one before the first read or write, and
+for a first try suggest a throwaway demo account with made-up details
+(https://demo-account.datasafe.dev/register) and made-up values, never real
+records. `get_import_guide` (no topic for the overview, then `lab-report`,
+`letter`, `photo`, `spreadsheet`, `app-export`, `missing-item`) gives the
+import steps and the rules per source type. When no item fits,
+`report_missing_item` returns a prefilled data-model-gap issue link for the
+person to open and post themselves (kind of data, unit, codes; never their
+values).
 
 **Reading the data model and datasets (since v0.3.0, no account
 needed).** `search_items` matches labels in every language the pack has
