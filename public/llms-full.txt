@@ -8,7 +8,9 @@ AI agent helping a user with HDS, read this once at session start.
 Canonical URL: https://agents.datasafe.dev/llms-full.txt
 (moved 2026-06-11 from docs.datasafe.dev/developers/llms-full.txt — update
 your pointers; the old URL serves a redirect note)
-Last updated: 2026-10-28 (§5f bulk imports: sourceKey, dedicated scoped
+Last updated: 2026-11-04 (§4a tool catalogue no longer labelled with a
+version; agent index at /llms.txt.
+2026-10-28: §5f bulk imports: sourceKey, dedicated scoped
 access, write order, re-run and removal by sourceKey prefix.
 2026-10-05: §4d partner services: /connect easy-connect + connector status.
 2026-06-19: itemDef-first rewritten as an end-to-end
@@ -409,7 +411,7 @@ point at the built output instead (`npm install` builds it):
 `{ "command": "node", "args": ["/absolute/path/to/hds-mcp-js/dist/index.js"] }`
 — re-run `npm run build` after editing `src/`.
 
-**Tool catalogue (v0.4.0, all tier=essential):** `connect`,
+**Tool catalogue (local stdio server; the runtime list is in `src/server.ts`):** `connect`,
 `list_streams`, `get_events`, `search_items`, `get_item`,
 `get_event_type`, `list_model_streams`, `list_datasources`,
 `search_dataset`, `create_event`, `import_batch`, `ensure_streams`,
@@ -1518,6 +1520,7 @@ users by revoking + re-authorizing (an app token can self-revoke via
 | Developer docs                   | https://docs.datasafe.dev/developers/                 |
 | Agents site (humans first)       | https://agents.datasafe.dev                           |
 | Agent bootstrap instructions     | https://agents.datasafe.dev/bootstrap.txt             |
+| Agent documentation index        | https://agents.datasafe.dev/llms.txt                  |
 | Feedback (GitHub issues)         | https://github.com/healthdatasafe/site-agents/issues  |
 | Data model (machine-readable)    | https://model.datasafe.dev/pack.json                  |
 | Data model browser (human)       | https://model-browser.datasafe.dev                    |

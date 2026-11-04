@@ -7,7 +7,7 @@ assignees: ''
 ---
 
 **What data were you trying to record or import?**
-(Source app/device, an example row or value, units.)
+(Source app/device, the kind of value and its unit. Never your own values, names or dates.)
 
 **What did you / your agent end up doing?**
 (e.g. fell back to note/txt, skipped it, invented a type.)

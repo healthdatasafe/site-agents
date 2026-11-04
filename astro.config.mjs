@@ -35,6 +35,7 @@ export default defineConfig({
         {
           label: 'Raw (for agents)',
           items: [
+            { label: 'llms.txt', link: '/llms.txt', attrs: { target: '_blank' } },
             { label: 'bootstrap.txt', link: '/bootstrap.txt', attrs: { target: '_blank' } },
             { label: 'llms-full.txt', link: '/llms-full.txt', attrs: { target: '_blank' } },
           ],
