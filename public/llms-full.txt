@@ -8,7 +8,9 @@ AI agent helping a user with HDS, read this once at session start.
 Canonical URL: https://agents.datasafe.dev/llms-full.txt
 (moved 2026-06-11 from docs.datasafe.dev/developers/llms-full.txt — update
 your pointers; the old URL serves a redirect note)
-Last updated: 2026-11-04 (§4a tool catalogue no longer labelled with a
+Last updated: 2026-11-05 (§4a-remote: the remote connector for Claude.ai,
+ChatGPT and Claude Code, per production region, and raw mode.
+2026-11-04: §4a tool catalogue no longer labelled with a
 version; agent index at /llms.txt.
 2026-10-28: §5f bulk imports: sourceKey, dedicated scoped
 access, write order, re-run and removal by sourceKey prefix.
@@ -388,7 +390,9 @@ user's goal is unclear, ask before installing.
 ### 4a. The MCP server (AI agent clients: Claude Desktop, ChatGPT, …)
 
 Repo: https://github.com/healthdatasafe/hds-mcp-js · Transport: stdio ·
-Auth: Pryv poll-mode OAuth (no callback URL needed).
+Auth: Pryv poll-mode OAuth (no callback URL needed). For Claude.ai,
+ChatGPT and Claude Code without installing anything, use the remote
+connector instead (§4a-remote).
 
 **Install in Claude Desktop.** Installs straight from GitHub via `npx` —
 no clone needed (the npm-registry name `hds-mcp` is not claimed yet):
@@ -482,6 +486,99 @@ and extension guide live in
 [`hds-mcp-js/AGENTS.md`](https://github.com/healthdatasafe/hds-mcp-js/blob/main/AGENTS.md).
 The canonical tool descriptions an agent sees at runtime are in
 [`hds-mcp-js/src/server.ts`](https://github.com/healthdatasafe/hds-mcp-js/blob/main/src/server.ts).
+
+### 4a-remote. Remote connector (HTTP): Claude.ai, ChatGPT, Claude Code
+
+The same HDS MCP server also runs as a remote connector, one per HDS
+production region, over Streamable HTTP. Nothing to install: the person
+adds it in their AI client and signs in with OAuth on HDS.
+
+**Connector URL: per region, never guessed.** Each region has its own
+connector URL, and an account lives in one region. A person does not need
+to know theirs: the HDS account app shows the right URL and the client ids
+to the signed-in user, on the "AI assistant" tab
+(https://account.hds.ngo/account/ai-assistant), with copy buttons. Send the
+person there rather than quoting a URL from memory.
+
+| Region       | Connector URL                                      |
+|--------------|----------------------------------------------------|
+| Switzerland  | https://auth-ch.api.datasafe.dev/adapter/mcp/mcp   |
+| USA          | https://auth-us.api.datasafe.dev/adapter/mcp/mcp   |
+
+**OAuth client ids** (public clients, PKCE, no client secret):
+
+| Client       | Client ID             |
+|--------------|-----------------------|
+| Claude.ai    | `hds-mcp-claude`      |
+| ChatGPT      | `hds-mcp-chatgpt`     |
+| Claude Code  | `hds-mcp-claude-code` |
+
+**Add it:**
+
+- Claude.ai: Settings > Connectors > Add custom connector. URL: the connector
+  URL; OAuth Client ID: `hds-mcp-claude`; leave the secret empty.
+- ChatGPT: the same in its connector settings, with `hds-mcp-chatgpt`.
+- Claude Code:
+    claude mcp add --transport http --client-id hds-mcp-claude-code hds <connector URL>
+    claude mcp login hds
+
+**Sign-in and consent.** The client opens HDS's sign-in and consent page; the
+person signs in (or creates an account) and sees which kinds of data the
+assistant asks for. The access is **read-only by default**. The first time the
+assistant writes to a kind of data (a data theme, i.e. a root stream such as
+Body), HDS asks the person for write consent on that theme; until they accept,
+the write is refused and nothing is written. Each theme is consented
+separately. The person can revoke the connector from their HDS account.
+
+**Differences from the local server (§4a):**
+
+- One platform per connector: the remote connectors above are production
+  (the person's real health record). `get_connection` says so; tell the
+  person before the first read.
+- No `connect` tool: sign-in happens in the client before the first call.
+  `connect({ host, enableWrites, roots, importName })` does not apply; the
+  production-write unlock is the per-theme consent above.
+- No `ensure_streams`: a connector never gets `manage`, so it cannot create
+  streams. Write only to items whose streams already exist in the account
+  (created by HDS apps); a write to a missing stream is refused by the platform
+  with nothing written. An import that needs new streams uses the local
+  server (§4a) or raw mode below.
+- Every other tool is the same as in §4a, with the same validation and errors.
+
+**Raw mode (no client ID).** For clients that cannot do the connector OAuth,
+or a person who has no client ID at hand, the same server answers at the
+connector URL with `/raw` in place of the final `/mcp`:
+
+| Region       | Raw URL                                            |
+|--------------|----------------------------------------------------|
+| Switzerland  | https://auth-ch.api.datasafe.dev/adapter/mcp/raw   |
+| USA          | https://auth-us.api.datasafe.dev/adapter/mcp/raw   |
+
+Add only that URL. The session starts unauthenticated with three extra
+tools: `connect` (no arguments; returns the platform's sign-in link: give it
+to the person, who opens it, signs in and accepts), `connect_status` (every
+other tool also checks it) and `disconnect` (deletes the access at once).
+The access covers all the person's data except genetic results (a master
+access `*` at `manage`; HDS masks genetics), and ends on its own after 4
+hours; tell the person the account name `connect_status` reports so they
+can check it is theirs. Tools that read or write the account refuse until
+then. Prefer the OAuth connector when the client supports it.
+
+**Guides and gaps.** Before an import, call `get_import_guide` (no topic for the
+overview, then one topic per source type). When no item fits, tell the person
+and offer `report_missing_item`, which returns a prefilled issue link they
+post themselves (never their values). When the connector itself fails, offer
+`report_problem`.
+
+**Files.** The model reads what the person attaches in the chat (a PDF, a
+photo, a spreadsheet) and the assistant records the values it extracts as
+structured events (§3, §5f). The original documents themselves cannot be
+stored in HDS yet: there is no attachment upload through the MCP. Tell the
+person so before they expect their PDFs to be kept.
+
+**Privacy.** Same rule as everywhere (§6): everything the assistant reads goes
+to its model provider. The server's instructions repeat this; say it before
+the first read.
 
 ### 4b. `hds-lib` — build a browser app or Node program
 

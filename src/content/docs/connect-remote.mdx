@@ -1,0 +1,76 @@
+---
+title: Connect from Claude.ai / ChatGPT
+description: Add Health Data Safe as a connector in Claude.ai, ChatGPT or Claude Code. Nothing to install; sign in on HDS and choose what your assistant may read and write.
+---
+
+You can connect your AI assistant to your Health Data Safe (HDS) account
+without installing anything on your computer. You add HDS as a **connector**
+in your assistant's settings, then sign in on HDS.
+
+## 1. Get your connector address
+
+Sign in to your HDS account and open the **AI assistant** tab
+([account.hds.ngo/account/ai-assistant](https://account.hds.ngo/account/ai-assistant)).
+It shows the connector address for your HDS region and the client ID for each
+assistant, with copy buttons. The address depends on where your data is
+hosted, so always take it from that tab.
+
+For reference, the addresses are:
+
+| Region      | Connector address                                  |
+|-------------|----------------------------------------------------|
+| Switzerland | `https://auth-ch.api.datasafe.dev/adapter/mcp/mcp` |
+| USA         | `https://auth-us.api.datasafe.dev/adapter/mcp/mcp` |
+
+## 2. Add the connector
+
+**Claude.ai:** Settings > Connectors > **Add custom connector**. Paste the
+connector address, open the advanced settings and enter the OAuth Client ID
+`hds-mcp-claude`. Leave the client secret empty.
+
+**ChatGPT:** in its connector settings, add a custom connector with the same
+address and the Client ID `hds-mcp-chatgpt`, no secret.
+
+**No client ID field, or not sure?** Add the address ending in `/raw` instead
+of `/mcp` (also on the AI assistant tab). Your assistant will give you a
+sign-in link to open; the connection lasts 4 hours and covers all your data
+except genetic results.
+
+**Claude Code:** in a terminal, with your connector address in place of
+`CONNECTOR_ADDRESS`,
+
+```sh
+claude mcp add --transport http --client-id hds-mcp-claude-code hds CONNECTOR_ADDRESS
+claude mcp login hds
+```
+
+## 3. Sign in and choose what to share
+
+Your assistant opens an HDS page. Sign in (or create an account), then read
+the consent screen: it lists the kinds of data your assistant asks for.
+
+- **Read-only at first.** The connector can only read what you approve.
+- **Writing is asked theme by theme.** The first time your assistant wants to
+  add data to a theme (for example Body), HDS asks you to allow it. Nothing is
+  written until you accept.
+- You can remove the connector at any time from your HDS account.
+
+## What works differently from the installed server
+
+- The connector works on your real (production) HDS account. To try it
+  first, use the [installed server](/install/) with a demo account.
+- Your assistant cannot create new data folders (streams) in your account.
+  It can add data where your HDS apps already created them. For a large
+  import that needs new ones, use the [installed server](/install/).
+- **Files:** your assistant reads the documents you attach in the chat and
+  records the values it finds in them. The original documents cannot be
+  stored in HDS yet.
+
+:::caution[Your assistant's provider sees what it reads]
+Everything your assistant reads, from your HDS account or from the files you
+attach, is sent to the company that runs it. A provider that does not train
+on your data is the safer choice for medical records. You can stop at any
+point.
+:::
+
+Something did not work? [Tell us](/feedback/).

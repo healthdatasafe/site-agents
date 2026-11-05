@@ -25,6 +25,7 @@ export default defineConfig({
           items: [
             { label: 'Start here', slug: 'index' },
             { label: 'Install the MCP server', slug: 'install' },
+            { label: 'Connect from Claude.ai / ChatGPT', slug: 'connect-remote' },
             { label: 'Connect & permissions', slug: 'connect' },
             { label: 'Recording data right', slug: 'data' },
             { label: 'Building apps (hds-lib)', slug: 'build' },
