@@ -2,7 +2,7 @@
 
 > Documentation for AI agents, and the people who use them, working with Health Data Safe (HDS): the open, consent-based health data infrastructure of a Swiss non-profit foundation, where each person owns their health record and decides who may read or add to it. It covers connecting an AI assistant to a person's HDS account through the HDS MCP server, recording data with the HDS data model, and building apps with the hds-lib JavaScript library.
 
-Today an AI assistant connects to an HDS account through the local HDS MCP server, which runs on the person's own computer (stdio transport, Node.js 20 or newer) and works with MCP-capable clients such as Claude Desktop. The client's MCP configuration starts it with `npx -y github:healthdatasafe/hds-mcp-js`; see the install page below. The person signs in to HDS in their browser and approves the access on a consent screen. The demo platform is the default; writing to a real (production) account needs the person's explicit request.
+An AI assistant connects to an HDS account in one of two ways. The remote connector needs no install: the person adds it in Claude.ai, ChatGPT or Claude Code (one connector URL per production region, shown on the "AI assistant" tab of https://account.hds.ngo), signs in with OAuth on HDS and approves the access on a consent screen; see the connect-remote page below. The local HDS MCP server runs on the person's own computer (stdio transport, Node.js 20 or newer) with MCP-capable clients such as Claude Desktop, started with `npx -y github:healthdatasafe/hds-mcp-js`; see the install page below. It defaults to the demo platform, and it is the one to use for imports that create new streams; writing to a real (production) account through it needs the person's explicit request.
 
 If the person wants to build an app or a script rather than have you work on their data, they do not need the MCP server: their code uses hds-lib (see "Building apps").
 
@@ -14,6 +14,7 @@ If the person wants to build an app or a script rather than have you work on the
 ## Pages
 
 - [HDS for AI agents](https://agents.datasafe.dev/): overview and the short prompt a person pastes into their assistant.
+- [Connect from Claude.ai / ChatGPT](https://agents.datasafe.dev/connect-remote/): add HDS as a remote connector, per production region; client IDs and raw mode (sign in by link).
 - [Install the MCP server](https://agents.datasafe.dev/install/): requirements, the client configuration entry, troubleshooting.
 - [Connect & permissions](https://agents.datasafe.dev/connect/): the browser sign-in, access levels, production guardrails, what the model provider sees.
 - [Recording data right](https://agents.datasafe.dev/data/): look data up in the HDS data model before writing it, structured events instead of notes, the bulk import contract.
