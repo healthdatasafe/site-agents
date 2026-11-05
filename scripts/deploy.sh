@@ -18,9 +18,12 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
-if [ ! -d dist/.git ]; then
-  echo "ERROR: dist/ is not a gh-pages checkout. Run 'bash scripts/setup.sh' first."
-  exit 1
+# A local `npm run build` (astro) empties dist/, .git included. Re-clone the
+# gh-pages checkout instead of failing: dist/ is rebuilt below anyway.
+if [ ! -e dist/.git ]; then
+  echo "dist/ is not a gh-pages checkout (a local build wipes it): re-cloning gh-pages..."
+  rm -rf dist
+  git clone -q -b gh-pages git@github.com:healthdatasafe/site-agents.git dist
 fi
 
 COMMIT_SHORT="$(git rev-parse --short HEAD)"
@@ -28,8 +31,11 @@ COMMIT_FULL="$(git rev-parse HEAD)"
 echo "Deploying commit $COMMIT_SHORT ..."
 
 echo "Building..."
-# Preserve dist/.git during build (Astro wipes dist/)
-mv dist/.git /tmp/site-agents-gh-pages-git
+# Preserve dist/.git during build (Astro wipes dist/). Per-run folder, restored
+# on any exit, so a failed check or build never strands it.
+GIT_STASH="$(mktemp -d)"
+mv dist/.git "$GIT_STASH/git"
+trap '[ -e "$GIT_STASH/git" ] && mkdir -p dist && rm -rf dist/.git && mv "$GIT_STASH/git" dist/.git; rm -rf "$GIT_STASH"' EXIT
 # Refuse to build against a node_modules that does not match package-lock.json.
 # A dependency bump pulled from git but never `npm install`ed produces a bundle
 # linked against the OLD library while the source expects the new one - lint,
@@ -68,7 +74,7 @@ if (linked.length || drift.length) process.exit(1);
 
 
 npm run build
-mv /tmp/site-agents-gh-pages-git dist/.git
+mv "$GIT_STASH/git" dist/.git
 echo "Build OK."
 
 # Ensure .nojekyll exists
