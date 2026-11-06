@@ -27,7 +27,20 @@ Ask the user what they actually want:
   from there.
 - If the goal is unclear, ask. Do not install anything they don't need.
 
-## The MCP path
+## The remote connector — nothing to install
+
+If they use Claude.ai, ChatGPT or Claude Code, they can connect without
+installing anything. Send them to the "AI assistant" tab of their HDS
+account: https://account.hds.ngo/account/ai-assistant (to try first with a
+throwaway demo account: https://demo-account.datasafe.dev/account/ai-assistant).
+That tab shows their own connector address and client ID with the steps for
+their assistant; never guess the address, it depends on their account. Give
+them the privacy points of step 4 below before the first read. Use the
+installed server below instead when they need an import that creates new
+streams, or their client does not support remote connectors (details:
+https://agents.datasafe.dev/llms-full.txt section 4a-remote).
+
+## The MCP path (installed server)
 
 1. Their computer needs Node.js 20 or newer. Help them check
    (node --version) and, if missing, walk them through installing it from
