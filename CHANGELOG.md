@@ -20,6 +20,11 @@
   Never calling a bridge. (site-agents#19)
 
 ### Fixed
+- **A deploy waits until the site serves it** (2026-11-08, B-2026-11-06-12): `scripts/deploy.sh` used to report success once
+  the Pages branch was pushed, even when GitHub's own Pages deploy then failed and the previous build kept serving.
+  It now runs `scripts/verify-pages.sh` (same helper as hds-webapp), which waits until the site's `version.json`
+  names the commit just built, re-runs a failed `pages-build-deployment` run once, and fails (non-zero, with the
+  run link) otherwise. `VERIFY_PAGES_TIMEOUT` (default 900 s).
 - **The HTTPS-origin requirement is now scoped to the flow it belongs to**
   (`llms-full.txt` §4b, §4b-i, §5b, plus a new note in §4c). It was stated as a
   property of HDS sign-in in general. It holds for the `hds-lib` sign-in button,
