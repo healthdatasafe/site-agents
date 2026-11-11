@@ -937,7 +937,13 @@ links to one HDS page, and reads the connector's status from the user's own acco
 
 Which connectors: the catalogue `apps/list.json` (service info `assets.definitions`). Usable entries have
 `hook.initiate`: `bridge-mira` (demo + prod), `bridge-tempdrop` (prod only). Each entry has `statusStreamId`
-(e.g. `sync-status-mira`): read it from there, never derive it.
+(e.g. `sync-status-mira`): read it from there, never derive it. A device connector also has `deviceName` (`Mira`,
+`Tempdrop`: the name to show for its values, e.g. a chart line) and optionally `deviceItems` (the item keys the
+device measures; absent = everything the connector writes).
+The same file's `partnerApps[]` lists apps used in their own window with their own sign-in (not connectors: no
+`hook`, no `/connect`): name, description, icon, `urls.{web,ios,android}` (no address = no card on that platform),
+and `grant: "access"` (app access named `appCode`) or `"cmc"` (CMC relationship with that app code). Vouching rules:
+data-model documentation/APP-DESCRIPTION.md.
 
 Connect / reconnect / disconnect (browser navigation, no registration):
 
