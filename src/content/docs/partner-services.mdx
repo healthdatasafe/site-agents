@@ -20,6 +20,19 @@ today **`bridge-mira`** (demo and prod) and **`bridge-tempdrop`** (prod only: Te
 entry carries its name, icon, a `paused` flag, and **`statusStreamId`**: the stream where its status lives
 (`bridge-mira` → `sync-status-mira`). Read the stream id from there; do not derive it from the app id.
 
+A connector that reads a device also names it: **`deviceName`** (`Mira`, `Tempdrop`) is the name to show for the
+values it writes, for instance as the name of a chart line, and **`deviceItems`** lists the item keys the device
+measures (Mira: `body-urine-hormones-lh`, `-e3g`, `-pdg`, `-fsh`, `-hcg`). Without `deviceItems`, `deviceName`
+applies to everything the connector writes; without `deviceName`, the connector is a service, not a device.
+
+The same file has a second list, **`partnerApps`**: apps the person uses in their own window with their own
+sign-in (Cycle Intelligence, the DysNet registry). They are not connectors: no `hook`, no `/connect`. An entry
+gives the app's name, description, icon, its address per platform (`urls.web`, `urls.ios`, `urls.android`; no
+address, no card on that platform) and how its grant is recognised: `grant: "access"` (an app access named
+`appCode`) or `grant: "cmc"` (a CMC relationship whose app code is `appCode`). How an entry vouches for an app is in
+data-model
+[`APP-DESCRIPTION.md`](https://github.com/healthdatasafe/data-model/blob/main/documentation/APP-DESCRIPTION.md).
+
 ## Connect, reconnect, disconnect
 
 Send the user's browser to:
