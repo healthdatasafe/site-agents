@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- **Catalogue fields** on the Partner services page and `llms-full.txt` §4d (2026-11-11, B-2026-10-28-14): a
+  connector's `deviceName` / `deviceItems`, and the `partnerApps[]` list (apps used in their own window, not
+  connectors), pointing to data-model `APP-DESCRIPTION.md` for vouching.
 - **MCP 0.4.0** in `llms-full.txt` §4a, §5f and §7: scoped `connect` (`roots`, `importName`) and the read-back,
   update and removal tools, so the §5f import contract can be followed through the MCP (site-agents#36 A3, A6).
 - **MCP 0.3.0** in `llms-full.txt` §4a, §6 and §7: data model and datasets read tools (code and French-label item
