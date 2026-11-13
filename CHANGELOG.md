@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- **No-account problem reports** (2026-11-13): the Feedback page, the `agent-problem` template and `llms-full.txt`
+  say that `report_problem` opens an HDS review page (`issues.hds.ngo`) where the person checks and sends the
+  report, no GitHub account needed; GitHub stays the second route, with a warning that its issues are public.
 - **Catalogue fields** on the Partner services page and `llms-full.txt` §4d (2026-11-11, B-2026-10-28-14): a
   connector's `deviceName` / `deviceItems`, and the `partnerApps[]` list (apps used in their own window, not
   connectors), pointing to data-model `APP-DESCRIPTION.md` for vouching.
