@@ -568,7 +568,9 @@ then. Prefer the OAuth connector when the client supports it.
 overview, then one topic per source type). When no item fits, tell the person
 and offer `report_missing_item`, which returns a prefilled issue link they
 post themselves (never their values). When the connector itself fails, offer
-`report_problem`.
+`report_problem`: it returns a link to an HDS review page (issues.hds.ngo)
+where the person checks the draft and sends it, no account needed; nothing
+is filed until they press Send.
 
 **Files.** The model reads what the person attaches in the chat (a PDF, a
 photo, a spreadsheet) and the assistant records the values it extracts as
