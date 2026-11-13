@@ -6,6 +6,10 @@ labels: agent-problem
 assignees: ''
 ---
 
+<!-- No GitHub account? Ask your agent to "report the problem": it opens an
+HDS review page (issues.hds.ngo) where you check and send the report.
+This issue is public: never paste health data, tokens, or links containing them. -->
+
 **What did you ask your agent to do?**
 
 **What happened instead?**
