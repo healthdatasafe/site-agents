@@ -1060,44 +1060,51 @@ const SERVICE_INFO_URL = 'https://demo.datasafe.dev/reg/service/info';
 HDSLib.settings.setServiceInfoURL(SERVICE_INFO_URL);
 HDSLib.settings.setPreferredLocales(['en']);
 
+// The item keys the app reads and writes. body-weight is the canonical key —
+// discover keys at model-browser.datasafe.dev, via the MCP's search_items,
+// or by scanning pack.json items.
+const APP_ITEM_KEYS = ['body-weight'];
+
 let connection = null;
 let item = null;
 
-// setupAuth() replaces the <span> with a Pryv-styled sign-in button.
-// Clicking it opens a popup on demo.datasafe.dev; the user signs in there.
-// No returnURL: a full-page redirect does not redeem the one-time hand-off
-// key (lib-js 3.13.0), so an app that must redirect (authRequest.returnURL)
-// has to set authRequest.credentialHandoff: 'inline'.
-HDSLib.pryv.Browser.setupAuth({
-  authRequest: {
-    requestingAppId: 'hds-hello',
-    requestedPermissions: [
-      // Ask only for what the app needs. body-weight is the canonical
-      // streamId — discover keys at model-browser.datasafe.dev, via the
-      // MCP's search_items, or by scanning pack.json items.
-      { streamId: 'body-weight', defaultName: 'Body weight', level: 'manage' }
-    ]
-  },
-  onStateChange: async (state) => {
-    if (state.id === HDSLib.pryv.Browser.AuthStates.AUTHORIZED) {
-      // Fresh-path AUTHORIZED carries state.key, not state.apiEndpoint
-      // (pryv@3.5.0+). Resolve via connectFromKey, which returns a working
-      // Connection whose apiEndpoint is the token-bearing URL — handle privately.
-      // Cookie-autologin AUTHORIZED still carries state.apiEndpoint directly.
-      connection = state.key
-        ? await HDSLib.pryv.connectFromKey(state.key, SERVICE_INFO_URL)
-        : new HDSLib.pryv.Connection(state.apiEndpoint);
+async function start () {
+  // Load the model first: the permission request is built from it.
+  await HDSLib.initHDSModel();
+  const model = HDSLib.getHDSModel();
+  item = model.itemsDefs.forKey('body-weight');
 
-      await HDSLib.initHDSModel();
-      item = HDSLib.getHDSModel().itemsDefs.forKey('body-weight');
+  // setupAuth() replaces the <span> with a Pryv-styled sign-in button.
+  // Clicking it opens a popup on demo.datasafe.dev; the user signs in there.
+  // No returnURL: a full-page redirect does not redeem the one-time hand-off
+  // key (lib-js 3.13.0), so an app that must redirect (authRequest.returnURL)
+  // has to set authRequest.credentialHandoff: 'inline'.
+  HDSLib.pryv.Browser.setupAuth({
+    authRequest: {
+      requestingAppId: 'hds-hello',
+      // Ask only for what the app needs, built from the item keys, never
+      // hand-written: [{ streamId: 'body-weight', level: 'manage', defaultName: 'Body Weight' }]
+      requestedPermissions: model.authorizations.forItemKeys(APP_ITEM_KEYS, { defaultLevel: 'manage' })
+    },
+    onStateChange: async (state) => {
+      if (state.id === HDSLib.pryv.Browser.AuthStates.AUTHORIZED) {
+        // Fresh-path AUTHORIZED carries state.key, not state.apiEndpoint
+        // (pryv@3.5.0+). Resolve via connectFromKey, which returns a working
+        // Connection whose apiEndpoint is the token-bearing URL — handle privately.
+        // Cookie-autologin AUTHORIZED still carries state.apiEndpoint directly.
+        connection = state.key
+          ? await HDSLib.pryv.connectFromKey(state.key, SERVICE_INFO_URL)
+          : new HDSLib.pryv.Connection(state.apiEndpoint);
 
-      document.getElementById('item-info').textContent =
-        item.label + ' — types: ' + item.eventTypes.join(' / ');
-      document.getElementById('signed-in').style.display = 'block';
-    }
-  },
-  spanButtonID: 'login-button'
-}, SERVICE_INFO_URL);
+        document.getElementById('item-info').textContent =
+          item.label + ' — types: ' + item.eventTypes.join(' / ');
+        document.getElementById('signed-in').style.display = 'block';
+      }
+    },
+    spanButtonID: 'login-button'
+  }, SERVICE_INFO_URL);
+}
+start();
 
 document.getElementById('log-form').addEventListener('submit', async (ev) => {
   ev.preventDefault();
@@ -1230,11 +1237,13 @@ import * as HDSLib from 'hds-lib';
 
 const SERVICE_INFO_URL = 'https://demo.datasafe.dev/reg/service/info';
 const APP_ID = 'hds-cli-hello';
-const PERMISSIONS = [
-  { streamId: 'body-weight', defaultName: 'Body weight', level: 'manage' }
-];
+const APP_ITEM_KEYS = ['body-weight'];
 
 HDSLib.settings.setServiceInfoURL(SERVICE_INFO_URL);
+await HDSLib.initHDSModel();
+// The request is built from the item keys, never hand-written:
+// [{ streamId: 'body-weight', level: 'manage', defaultName: 'Body Weight' }]
+const PERMISSIONS = HDSLib.getHDSModel().authorizations.forItemKeys(APP_ITEM_KEYS, { defaultLevel: 'manage' });
 
 // 1. Discover the access endpoint, kick off poll-mode auth.
 //    POST to the bare `info.access` URL — the appId is carried in the
@@ -1288,8 +1297,7 @@ if (!apiEndpoint) throw new Error('auth timed out');
 
 console.log(`\n  Signed in as ${username}\n`);
 
-// 4. Now use hds-lib normally — model + connection.
-await HDSLib.initHDSModel();
+// 4. Now use hds-lib normally — model (loaded above) + connection.
 const item = HDSLib.getHDSModel().itemsDefs.forKey('body-weight');
 const connection = new HDSLib.pryv.Connection(apiEndpoint);
 
@@ -1603,14 +1611,19 @@ despite successful writes.
 **Sharp edge — roots and `defaultName` provisioning.** (1) An app/shared
 token **cannot** create a top-level root stream: `streams.create` with
 `parentId: null` returns `forbidden` even with `manage` on that exact
-streamId. (2) Requesting a permission with a `defaultName` provisions that
-root — but **only on the INITIAL authorization**. Adding a new root
-permission to an already-granted access (the consent screen's "Update
-permissions" path) updates permissions but does **not** create the new
-root, so writes to it fail with `unknown-referenced-resource`. Ship every
-root your app will ever need in the first OAuth scope, or migrate existing
-users by revoking + re-authorizing (an app token can self-revoke via
-`accesses.delete`, which cascades to its child shared accesses).
+streamId. (2) Streams the **data model knows** (what
+`model.authorizations.forItemKeys` returns) are created by the HDS consent
+screen in their place in the model tree, parents first, both on the first
+authorization and when an already-granted access is updated with more
+permissions. (3) A stream the model does **not** know (a custom root of
+your own) is created from its `defaultName` **only on the INITIAL
+authorization**: adding it to an already-granted access (the consent
+screen's "Update permissions" path) updates permissions but does **not**
+create it, so writes to it fail with `unknown-referenced-resource`. Ship
+every custom root your app will ever need in the first OAuth scope, or
+migrate existing users by revoking + re-authorizing (an app token can
+self-revoke via `accesses.delete`, which cascades to its child shared
+accesses).
 
 ---
 

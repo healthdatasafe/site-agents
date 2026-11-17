@@ -99,12 +99,32 @@ data-model
 <p>Send the user’s browser to:</p>
 <div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.v4551.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">https://account.hds.ngo/connect?app=&#x3C;catalogue id>&#x26;returnUrl=&#x3C;your https URL>&#x26;state=&#x3C;nonce>[&#x26;action=connect|reconnect|disconnect]</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="https://account.hds.ngo/connect?app=<catalogue id>&#x26;returnUrl=<your https URL>&#x26;state=<nonce>[&#x26;action=connect|reconnect|disconnect]"><div></div></button></div></figure></div>
 <p>Demo: <code dir="auto">https://demo-account.datasafe.dev/connect?…</code></p>
-<p>| parameter | |
-|---|---|
-| <code dir="auto">app</code> | The catalogue id, e.g. <code dir="auto">bridge-mira</code>. |
-| <code dir="auto">returnUrl</code> | Where the answer goes: any absolute <strong>https</strong> URL without credentials. No registration. |
-| <code dir="auto">state</code> | Your nonce (≤ 1024 characters), echoed back unchanged. Check it on return. |
-| <code dir="auto">action</code> | <code dir="auto">connect</code> (default), <code dir="auto">reconnect</code> or <code dir="auto">disconnect</code>. |</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>parameter</th><th></th></tr></thead><tbody><tr><td><code dir="auto">app</code></td><td>The catalogue id, e.g. <code dir="auto">bridge-mira</code>.</td></tr><tr><td><code dir="auto">returnUrl</code></td><td>Where the answer goes: any absolute <strong>https</strong> URL without credentials. No registration.</td></tr><tr><td><code dir="auto">state</code></td><td>Your nonce (≤ 1024 characters), echoed back unchanged. Check it on return.</td></tr><tr><td><code dir="auto">action</code></td><td><code dir="auto">connect</code> (default), <code dir="auto">reconnect</code> or <code dir="auto">disconnect</code>.</td></tr></tbody></table>
 <p>The user signs in to HDS (or creates an account) if needed, sees a confirmation card naming the connector and
 <strong>your host</strong>, and nothing happens before they click. Then:</p>
 <ul>
@@ -119,13 +139,36 @@ says <code dir="auto">needs-reauth</code>).</li>
 <div class="sl-heading-wrapper level-h3"><h3 id="the-answer">The answer</h3><a class="sl-anchor-link" href="#the-answer"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore>Section titled “The answer”</span></a></div>
 <p>The browser comes back to <code dir="auto">returnUrl</code> with these query parameters (any of the same name you put in
 <code dir="auto">returnUrl</code> are replaced):</p>
-<p>| parameter | values |
-|---|---|
-| <code dir="auto">state</code> | your nonce |
-| <code dir="auto">app</code> | the catalogue id |
-| <code dir="auto">action</code> | the action actually run: a <code dir="auto">connect</code> on a connected service can answer <code dir="auto">reconnect</code> |
-| <code dir="auto">result</code> | <code dir="auto">connected</code>, <code dir="auto">disconnected</code>, <code dir="auto">cancelled</code> or <code dir="auto">error</code> |
-| <code dir="auto">reason</code> | on <code dir="auto">cancelled</code> and <code dir="auto">error</code> only: a stable id |</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>parameter</th><th>values</th></tr></thead><tbody><tr><td><code dir="auto">state</code></td><td>your nonce</td></tr><tr><td><code dir="auto">app</code></td><td>the catalogue id</td></tr><tr><td><code dir="auto">action</code></td><td>the action actually run: a <code dir="auto">connect</code> on a connected service can answer <code dir="auto">reconnect</code></td></tr><tr><td><code dir="auto">result</code></td><td><code dir="auto">connected</code>, <code dir="auto">disconnected</code>, <code dir="auto">cancelled</code> or <code dir="auto">error</code></td></tr><tr><td><code dir="auto">reason</code></td><td>on <code dir="auto">cancelled</code> and <code dir="auto">error</code> only: a stable id</td></tr></tbody></table>
 <p>Reasons: <code dir="auto">user-cancelled</code>, <code dir="auto">partner-denied</code> (the user refused at the partner), <code dir="auto">partner-error</code>,
 <code dir="auto">bridge-unavailable</code>, <code dir="auto">hds-error</code>, <code dir="auto">offer-invalid</code>, <code dir="auto">session-lost</code>, and the accept’s own <code dir="auto">cmc-*</code> ids. Treat an
 id you do not know as a generic error.</p>
@@ -142,13 +185,36 @@ an error page with no link.</p>
 is created in its place in the user’s account on sign-in, so you can request it before the user connects.</p>
 <p>Then read the one status event:</p>
 <div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="js"><code><div class="ec-line"><div class="code"><span style="--0:#C792EA;--1:#8844AE">const [</span><span style="--0:#82AAFF;--1:#3B61B0">res</span><span style="--0:#C792EA;--1:#8844AE">] = await </span><span style="--0:#7FDBCA;--1:#096E72">connection</span><span style="--0:#C792EA;--1:#8844AE">.</span><span style="--0:#82AAFF;--1:#3B61B0">api</span><span style="--0:#D6DEEB;--1:#403F53">([{ method: </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">events.get</span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#D6DEEB;--1:#403F53">, params: {</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">streams: [</span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">sync-status-mira</span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#D6DEEB;--1:#403F53">], types: [</span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">sync-status/connector-v1</span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#D6DEEB;--1:#403F53">], limit: </span><span style="--0:#F78C6C;--1:#AA0982">1</span><span style="--0:#D6DEEB;--1:#403F53"> } }]);</span></div></div><div class="ec-line"><div class="code"><span style="--0:#C792EA;--1:#8844AE">const </span><span style="--0:#82AAFF;--1:#3B61B0">status</span><span style="--0:#C792EA;--1:#8844AE"> = </span><span style="--0:#7FDBCA;--1:#096E72">res</span><span style="--0:#C792EA;--1:#8844AE">.</span><span style="--0:#7FDBCA;--1:#096E72">events</span><span style="--0:#C792EA;--1:#8844AE">?.</span><span style="--0:#D6DEEB;--1:#403F53">[</span><span style="--0:#F78C6C;--1:#AA0982">0</span><span style="--0:#D6DEEB;--1:#403F53">]</span><span style="--0:#C792EA;--1:#8844AE">?.</span><span style="--0:#7FDBCA;--1:#096E72">content</span><span style="--0:#D6DEEB;--1:#403F53">; </span><span style="--0:#919F9F;--1:#5D6376">// undefined = not connected</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="const [res] = await connection.api([{ method: &#x27;events.get&#x27;, params: {  streams: [&#x27;sync-status-mira&#x27;], types: [&#x27;sync-status/connector-v1&#x27;], limit: 1 } }]);const status = res.events?.[0]?.content; // undefined = not connected"><div></div></button></div></figure></div>
-<p>| field | meaning |
-|---|---|
-| <code dir="auto">status</code> | <code dir="auto">active</code>, <code dir="auto">needs-reauth</code>, <code dir="auto">error</code> or <code dir="auto">disconnected</code>. Show any other value as unknown. |
-| <code dir="auto">connectedAt</code> | when the current connection was made |
-| <code dir="auto">lastRunAt</code> / <code dir="auto">lastSuccessAt</code> | last sync attempt / last successful sync |
-| <code dir="auto">syncedUntil</code> | how far the partner data goes, when the connector knows it |
-| <code dir="auto">lastError</code> | <code dir="auto">{ class: auth / upstream / hds / other, code, at }</code>: <code dir="auto">code</code> is a short operator code, never partner text |</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>field</th><th>meaning</th></tr></thead><tbody><tr><td><code dir="auto">status</code></td><td><code dir="auto">active</code>, <code dir="auto">needs-reauth</code>, <code dir="auto">error</code> or <code dir="auto">disconnected</code>. Show any other value as unknown.</td></tr><tr><td><code dir="auto">connectedAt</code></td><td>when the current connection was made</td></tr><tr><td><code dir="auto">lastRunAt</code> / <code dir="auto">lastSuccessAt</code></td><td>last sync attempt / last successful sync</td></tr><tr><td><code dir="auto">syncedUntil</code></td><td>how far the partner data goes, when the connector knows it</td></tr><tr><td><code dir="auto">lastError</code></td><td><code dir="auto">{ class: auth / upstream / hds / other, code, at }</code>: <code dir="auto">code</code> is a short operator code, never partner text</td></tr></tbody></table>
 <p>Times are Unix seconds. <strong>No event, or <code dir="auto">unknown-referenced-resource</code> on the stream, means not connected.</strong></p>
 <p>A simple UI: <strong>Connect</strong> when not connected or <code dir="auto">disconnected</code>; <strong>Reconnect</strong> when <code dir="auto">needs-reauth</code>; last sync from
 <code dir="auto">lastSuccessAt</code>; <strong>Disconnect</strong> when connected.</p>
