@@ -291,7 +291,10 @@ or ask the user — never invent loose strings.**
 > (`getNecessaryListForItems` is the lower-level primitive — it returns the
 > raw `{ id, name, defaultName?, parentId }` payloads if you ever need them.
 > `StreamsAutoCreate.ensureExistsForItems` is what the two early apps
-> reimplemented by hand; use it instead.)
+> reimplemented by hand; use it instead. It needs `hds-lib` 2.54.2 or later
+> when the access covers only some model streams (`forItemKeys`): earlier
+> releases asked to create parents the access cannot see and threw
+> `forbidden`.)
 >
 > MCP and REST users derive the same structure from `pack.json` — read
 > `pack.items[key].streamId` and walk `pack.streams` for parents; never

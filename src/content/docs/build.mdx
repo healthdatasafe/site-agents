@@ -130,7 +130,7 @@ since last visit.
 
 A few exports an agent building on `hds-lib` will reach for often:
 
-- `toolkit.StreamsAutoCreate.attachToConnection(conn).ensureExistsForItems(itemKeys)` — provisions every stream a set of items needs (parents first, idempotent) in one call. **Use this instead of any hand-written stream tree.**
+- `toolkit.StreamsAutoCreate.attachToConnection(conn).ensureExistsForItems(itemKeys)` — provisions every stream a set of items needs (parents first, idempotent) in one call. **Use this instead of any hand-written stream tree.** It needs `hds-lib` 2.54.2 or later when the app's access covers only some model streams (`forItemKeys`): earlier releases asked to create the parents the access cannot see and threw `forbidden`.
 - `getHDSModel().streams.getNecessaryListForItems(itemKeys, { knowExistingStreamsIds })` — the lower-level primitive: the raw `streams.create` payloads, if you need them (e.g. to derive a read filter).
 - `getHDSModel().itemsDefs.forKey(key).eventTemplate({ eventType })` — `{ streamIds, type }` for an item's write. `eventType` is required for an item with variations (e.g. `body-weight`: `mass/kg` or `mass/lb`), which throws rather than guess the stored unit; omit it for a single-type item.
 - `eventToShortText(event)` — shared formatter for displaying events as `"60 Kg"` / `"Aspirin · 100mg"` / etc.
