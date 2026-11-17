@@ -281,7 +281,8 @@ or ask the user — never invent loose strings.**
 > await HDSLib.toolkit.StreamsAutoCreate.attachToConnection(connection).ensureExistsForItems(APP_ITEM_KEYS);
 >
 > // WRITE — never hand-write streamId/eventType:
-> const tmpl = model.itemsDefs.forKey('body-weight').eventTemplate();  // { streamIds, type }
+> // body-weight can be stored in kg or lb, so the unit is an explicit choice:
+> const tmpl = model.itemsDefs.forKey('body-weight').eventTemplate({ eventType: 'mass/kg' });  // { streamIds, type }
 >
 > // READ — derive the events.get `streams` filter from the SAME item set:
 > const streamIds = model.streams.getNecessaryListForItems(APP_ITEM_KEYS, { knowExistingStreamsIds: [] }).map(s => s.id);
@@ -364,10 +365,13 @@ How each interface implements it:
 | hds-lib   | `getHDSModel().itemsDefs.forKey(key)`            | `item.eventTypes`, `item.label`, …     | `connection.api([{method:'events.create', params:…}])` |
 | REST      | `GET https://model.datasafe.dev/pack.json`      | inspect `pack.items[key]`              | `POST /events` (see §6)                                 |
 
-For variations-only items in code, prefer `item.eventTemplate()` — it
-returns `{ streamIds: [canonical], type: eventTypes[0] }`, picking the
-first variation automatically. Override only when the user requested a
-specific unit.
+In code, get the write shape from `item.eventTemplate()`: it returns
+`{ streamIds: [canonical], type }`. An item with a single event type needs
+no argument. An item with **variations** (e.g. `body-weight`: `mass/kg` or
+`mass/lb`) **throws** without one, because the type is the stored unit and
+guessing it could store a wrong value: pass it explicitly,
+`item.eventTemplate({ eventType: 'mass/kg' })` (the options are
+`item.eventTypes`).
 
 Discovering the item **key** without the MCP: browse
 https://model-browser.datasafe.dev (human) or scan the keys of
@@ -638,14 +642,15 @@ npm install
 npm install git+https://github.com/healthdatasafe/hds-lib-js.git
 ```
 
-A built dev server (e.g. `npm run dev` → http://localhost:5173) is what
-you'll front with `backloop.dev` (§4b-i) to get the HTTPS origin the
-`hds-lib` sign-in button needs. This applies to **this** flow, where sign-in
-runs in the caller's page; the server-side auth-request flow in §4c has no
-such requirement (see the note there).
+The dev server (`npm run dev` → `http://localhost:5173`) is all the
+`hds-lib` sign-in button needs while developing: browsers treat
+`http://localhost` as a secure origin and HDS sign-in accepts it (verified
+end to end on demo, 2026-11-17). A deployed app is served over HTTPS. A
+runnable version of this setup is the `weight-quickstart` example in
+<https://github.com/healthdatasafe/dev-examples>.
 
-> **Do not** load `hds-lib.js` from a CDN inside a plain HTML file
-> (`file://` or `http://localhost`). That recipe looks tempting but fails
+> **Do not** load `hds-lib.js` from a CDN inside a plain HTML file opened
+> from disk (`file://`). That recipe looks tempting but fails
 > the moment the `hds-lib` sign-in flow runs from a `file://` origin, and
 > the gh-pages bundle
 > (`https://healthdatasafe.github.io/hds-lib-js/hds-lib.js`) is there for
@@ -668,8 +673,9 @@ const model = HDSLib.getHDSModel();
 //    StreamsAutoCreate creates the whole tree (parents first) and is idempotent.
 await HDSLib.toolkit.StreamsAutoCreate.attachToConnection(connection).ensureExistsForItems(APP_ITEM_KEYS);
 
-// 2. WRITE — eventTemplate() gives { streamIds, type }; picks the first variation for you.
-const tmpl = model.itemsDefs.forKey('body-weight').eventTemplate();
+// 2. WRITE — eventTemplate() gives { streamIds, type }. body-weight has variations (kg or lb):
+//    name the unit, eventTemplate() refuses to guess it.
+const tmpl = model.itemsDefs.forKey('body-weight').eventTemplate({ eventType: 'mass/kg' });
 await connection.api([{ method: 'events.create', params: { ...tmpl, content: 72, time: epochSeconds } }]);
 
 // 3. READ — derive the streams filter from the SAME set. A single unknown stream in the
@@ -729,11 +735,10 @@ what's possible:
   localhost / 127.0.0.1 binds are reachable by the agent.** The agent can't
   open or proxy to arbitrary remote hosts.
 - Opening the HTML file directly (`file://…`) does **not** work for the
-  Pryv sign-in flow: the OAuth handshake refuses plain `http://` and
-  `file://` origins. It needs **real HTTPS**.
+  sign-in flow. A dev server on `http://localhost` does: browsers treat
+  `localhost` as a secure origin, and HDS sign-in accepts it.
 - That means a "just open the HTML file in your browser" recipe is a
-  dead-end inside Claude Code. The user has to run an actual dev server
-  *and* expose it over a publicly-trusted HTTPS hostname.
+  dead-end inside Claude Code. The user has to run an actual dev server.
 
 The supported recipe:
 
@@ -741,59 +746,25 @@ The supported recipe:
    HDS development. Use the official LTS installer at https://nodejs.org —
    green "LTS" button, no terminal needed. Skip `nvm` / Homebrew unless
    already in use.
-2. **Run a dev server on localhost.** Any static server works for a single
-   HTML page (`npx serve`, `npx http-server`, Vite, Astro, …). Pick a port,
-   e.g. `4322`.
-3. **Use [backloop.dev](https://backloop.dev) to give it real HTTPS.**
-   backloop ships a wildcard public cert for `*.backloop.dev` and a tiny
-   gateway that proxies `https://<name>.backloop.dev:7854` → your
-   `localhost:<port>`. With it, your dev page at
-   `https://myapp.backloop.dev:7854/` is OAuth-compatible.
-   Docs + source: https://backloop.dev · https://github.com/perki/backloop.dev
+2. **Run a dev server on localhost** — a bundled project (§4b), e.g. Vite:
+   `npm run dev`, then open `http://localhost:5173/`. The fastest start is
+   to clone the `weight-quickstart` example from
+   <https://github.com/healthdatasafe/dev-examples> and edit it.
+3. **No HTTPS setup is needed for `localhost`.** Only a dev page served on
+   another hostname (a LAN IP to test on a phone, a custom name) needs
+   HTTPS: use a locally trusted certificate, e.g.
+   [mkcert](https://github.com/FiloSottile/mkcert) or
+   [vite-plugin-mkcert](https://github.com/liuweiGL/vite-plugin-mkcert).
+   Do **not** use `backloop.dev`: it was discontinued on 2026-09-04 and its
+   public certificate no longer works.
 
-Minimal setup:
+**Port collisions.** Vite moves to the next free port when 5173 is taken,
+so a second project may land on 5174: open the URL Vite prints. Parallel
+workspaces should pin distinct ports (`vite --port 5180 --strictPort`) so
+they never have to debug "the sign-in popup goes to the wrong app", which
+is almost always two projects sharing one origin.
 
-```bash
-npm install -g backloop.dev               # one-time
-backloop.dev --config=gateway.json        # equals form — see note below
-```
-
-The flag form is `--config=<path>` with an `=` sign and no space. The
-CLI's `--help` does not advertise it; a bare positional arg is treated as
-a *directory to serve*, not as a JSON config path, so the space form
-silently fails.
-
-`gateway.json`:
-
-```json
-{
-  "port": 7854,
-  "hostnames": {
-    "myapp": { "proxy": "http://localhost:4322" }
-  }
-}
-```
-
-Then your HTML page from §5b loads at `https://myapp.backloop.dev:7854/`,
-which the Pryv auth flow accepts. The agent can also fetch this URL from
-inside Claude Code (it's locally proxied through the sandbox-friendly
-gateway).
-
-**Port collisions.** Port 7854 is the default but is **not** reserved.
-Another backloop instance, a parallel project, or any process already
-bound to 7854 will make the gateway fail to start. Pick a different port
-in that case — anything free (e.g. 7855, 7856, 8854). Change **two
-things together**:
-
-1. The `"port"` field in `gateway.json`.
-2. The `:7854` suffix in the URLs you use — e.g. `https://myapp.backloop.dev:7855/`.
-
-The `*.backloop.dev` DNS resolves the same regardless of port; the cert is
-also wildcard. Parallel workspaces should pre-pick distinct ports so they
-never have to debug "the OAuth popup goes to the wrong app" — that
-symptom is almost always a port shared across instances.
-
-If you skip Node.js and backloop, the only HDS path that still works in
+If you skip Node.js and a dev server, the only HDS path that still works in
 Claude Code is **MCP-driven** (§4a) — the agent uses `hds-mcp` to read and
 write the user's data without building a browser app at all.
 
@@ -1012,9 +983,11 @@ end-to-end if filesystem + vision are available in the client.
 ### 5b. `hds-lib` — minimal Vite app: sign-in + log a weight
 
 A small Vite project that signs the user in to HDS demo and logs a
-body-weight event. Three files. Run via `npm run dev`, then front with
-`backloop.dev` to get the HTTPS origin the `hds-lib` sign-in flow needs
-(not required for the §4c server-side flow).
+body-weight event. Two files, run with `npm run dev` on
+`http://localhost:5173`. A complete, tested version (with a demo/prod switch
+and the list of stored weights) is the `weight-quickstart` example in
+<https://github.com/healthdatasafe/dev-examples>: clone it rather than
+retyping this one.
 
 **Bootstrap:**
 
@@ -1109,8 +1082,8 @@ start();
 document.getElementById('log-form').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   const kg = parseFloat(document.getElementById('weight').value);
-  // body-weight is variations-only → eventTemplate() picks mass/kg.
-  const tmpl = item.eventTemplate();
+  // body-weight has variations (kg or lb): eventTemplate() needs the unit.
+  const tmpl = item.eventTemplate({ eventType: 'mass/kg' });
   const res = await connection.api([{
     method: 'events.create',
     params: { ...tmpl, content: kg }
@@ -1120,42 +1093,21 @@ document.getElementById('log-form').addEventListener('submit', async (ev) => {
 });
 ```
 
-**Run + expose over HTTPS:**
+**Run:**
 
 ```bash
 npm run dev                          # Vite on http://localhost:5173
-# in another terminal:
-npx backloop.dev --config=gateway.json
 ```
 
-The flag form is `--config=<path>` (equals, no space). The CLI's `--help`
-under-documents this — `backloop.dev <path>` treats the bare arg as a
-directory to serve, not as a config file.
-
-`gateway.json`:
-
-```json
-{
-  "port": 7855,
-  "hostnames": {
-    "hello": { "proxy": "http://localhost:5173" }
-  }
-}
-```
-
-Open `https://hello.backloop.dev:7855/` in a browser. The Pryv sign-in
-button renders; sign-in opens a popup and returns an apiEndpoint; the form
-writes a `body-weight` event using `item.eventTemplate()`.
-
-Port 7855 is chosen here to dodge collision with the canonical default
-7854 (often already taken by an existing backloop instance). For the full
-port-collision rule, see §4b-i.
+Open `http://localhost:5173/` in a browser. The sign-in button renders;
+sign-in opens a popup and returns an apiEndpoint; the form writes a
+`body-weight` event using `item.eventTemplate({ eventType: 'mass/kg' })`.
+If 5173 is taken, Vite prints the port it used (see §4b-i).
 
 Why this shape (vs. a plain HTML file + CDN script tag): the `hds-lib`
 sign-in button runs the flow **inside your page**, so a `file://` origin
-does not work. `backloop.dev` puts a publicly-trusted `*.backloop.dev` cert
-in front of your localhost dev server, which is the simplest way to develop
-against a setup that matches production.
+does not work. A dev server on `http://localhost` does (browsers treat
+`localhost` as a secure origin); a deployed app is served over HTTPS.
 
 This requirement belongs to **this** flow. It is not a property of HDS
 sign-in in general: the §4c auth-request flow, where the backend exchanges
@@ -1191,11 +1143,12 @@ const model = HDSLib.getHDSModel();
 await HDSLib.toolkit.StreamsAutoCreate.attachToConnection(connection).ensureExistsForItems(APP_ITEM_KEYS);
 
 // 2. WRITE — event shape comes from the item, never hand-written.
-async function logItem(itemKey, content, time = Date.now() / 1000) {
-  const tmpl = model.itemsDefs.forKey(itemKey).eventTemplate();   // { streamIds, type }
+//    `eventType` is only needed for an item with variations (body-weight: kg or lb).
+async function logItem(itemKey, content, eventType, time = Date.now() / 1000) {
+  const tmpl = model.itemsDefs.forKey(itemKey).eventTemplate({ eventType });   // { streamIds, type }
   return connection.api([{ method: 'events.create', params: { ...tmpl, content, time } }]);
 }
-await logItem('body-weight', 64.2);
+await logItem('body-weight', 64.2, 'mass/kg');
 await logItem('body-temperature-basal', 36.7);
 
 // 3. READ — the events.get filter is derived from the SAME item set.
@@ -1303,7 +1256,7 @@ const connection = new HDSLib.pryv.Connection(apiEndpoint);
 
 const res = await connection.api([{
   method: 'events.create',
-  params: { ...item.eventTemplate(), content: 72 }
+  params: { ...item.eventTemplate({ eventType: 'mass/kg' }), content: 72 }
 }]);
 console.log('Wrote event:', JSON.stringify(res, null, 2));
 ```
@@ -1342,8 +1295,8 @@ sign-in round-trip confirmed the `ACCEPTED`-branch fields
 above ran unmodified and the event was independently re-read via the
 API.
 
-The sign-in URL is real HTTPS served by HDS — no `backloop.dev` needed
-here, because the script never serves anything itself; it only **consumes**
+The sign-in URL is real HTTPS served by HDS — no local dev server or
+certificate is needed here, because the script never serves anything itself; it only **consumes**
 the user's sign-in completion via the poll URL.
 
 ### 5d. REST — minimal curl (after OAuth)
@@ -1670,7 +1623,8 @@ accesses).
 | Data in Pryv (best concept walk-through: streams, events, accesses) | https://pryv.github.io/data-in-pryv/ |
 | Pryv concepts overview           | https://pryv.github.io/concepts/                      |
 | Pryv event-types catalogue       | https://pryv.github.io/event-types/                   |
-| `backloop.dev` (local HTTPS)     | https://backloop.dev · https://github.com/perki/backloop.dev |
+| Runnable examples (`weight-quickstart`, …) | https://github.com/healthdatasafe/dev-examples |
+| Local HTTPS, only if not on `localhost` | https://github.com/FiloSottile/mkcert |
 | Patient app (demo)               | https://demo-app.datasafe.dev                         |
 | Doctor dashboard (demo)          | https://demo-doctor-dashboard.datasafe.dev            |
 
