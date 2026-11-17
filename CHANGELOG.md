@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **`StreamsAutoCreate.ensureExistsForItems` needs hds-lib 2.54.2** (2026-11-17, B-2026-11-17-1): earlier releases
+  threw `forbidden` for an app whose access covers only some model streams (`forItemKeys`), because they asked to
+  create parents the access cannot see. Building apps § Helpful exports and `llms-full.txt` §3 say so.
 - **No more backloop.dev** (2026-11-17): it was discontinued on 2026-09-04 and its public certificate no longer
   works. Building apps, `llms-full.txt` §4b, §4b-i, §5b and the links table now say what was verified on demo the same
   day: `npm run dev` on `http://localhost` is enough for hds-lib sign-in; another hostname needs a locally trusted
