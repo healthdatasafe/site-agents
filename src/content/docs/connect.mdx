@@ -44,30 +44,43 @@ pipeline, or just iterating with an agent:
 Wide scopes are a development convenience on sandbox data — never the
 end state for production use.
 
-### Browser OAuth: `*` works, but concrete roots are better
+### Browser OAuth: `*` while developing, built from your items when done
 
 `pryv.Browser.setupAuth` accepts a wildcard request —
 `requestedPermissions: [{ streamId: '*', level: 'manage' }]` — and the
 consent screen reads "Manage **all your data**". That's fine while
-developing. For the shipped app, request the **concrete root streams** your
-flow uses, each with a `defaultName`:
+developing.
+
+For the shipped app, **don't hand-write the list: build it from the item
+keys your app reads and writes**, the same list that drives provisioning,
+writes and reads ([Building apps](/build/)). `forItemKeys` returns the
+minimal set, one `{ streamId, defaultName, level }` per stream your items
+live in, and drops any stream a requested parent already covers:
 
 ```js
-requestedPermissions: [
-  { streamId: 'body',     defaultName: 'Body',     level: 'manage' },
-  { streamId: 'fertility', defaultName: 'Fertility', level: 'manage' },
-  { streamId: 'symptom',  defaultName: 'Symptoms', level: 'manage' }
-]
+const APP_ITEM_KEYS = ['body-weight', 'body-temperature-basal'];
+const model = HDSLib.getHDSModel(); // after await HDSLib.initHDSModel()
+
+const requestedPermissions = model.authorizations.forItemKeys(APP_ITEM_KEYS, {
+  defaultLevel: 'contribute', // 'read' (default), 'contribute' or 'manage'
+  // preRequest: [{ streamId: 'body', level: 'read' }], // streams beyond your items
+});
+// [ { streamId: 'body-weight', level: 'contribute', defaultName: 'Body Weight' },
+//   { streamId: 'body-temperature-basal', level: 'contribute', defaultName: 'Basal Body Temperature' } ]
 ```
 
-Two payoffs: the consent screen names exactly what's shared ("Manage
-**Body** / **Fertility** / **Symptoms**" — clearer least-privilege UX), and
-**a requested root with a `defaultName` is provisioned on the user's
-account at grant time.** Caveat: that provisioning only fires on the
-*initial* authorization — adding a new root to an already-granted access
-does not create it (see the [`llms-full.txt`](/llms-full.txt) §7 root note).
-Ship every root your app will need in the first scope. Descendant streams
-are created from the model after sign-in (see [Building apps](/build/)).
+Pass the result as `authRequest.requestedPermissions`. The payoffs: the
+consent screen names exactly what's shared, the request can never drift
+from the data your app handles (adding a data domain stays a one-line
+change to `APP_ITEM_KEYS`), and a requested stream the account does not
+have yet is created at consent, in its place in the model tree. Use
+`preRequest` for anything that is not an item of yours, such as a partner
+connector's status stream ([Partner services](/partner-services/)).
+
+A stream the data model does not know (a custom root of your own) is
+provisioned from its `defaultName` only on the *initial* authorization: put
+it in the first scope (see the [`llms-full.txt`](/llms-full.txt) §7 root
+note).
 
 ## Production guardrails
 

@@ -5,6 +5,9 @@ import starlight from '@astrojs/starlight';
 export default defineConfig({
   site: 'https://agents.datasafe.dev',
   base: '/',
+  // Astro 6.4 leaves `markdown.gfm` undefined by default, and @astrojs/mdx 5.0.x only adds
+  // remark-gfm when it is truthy: without this, no table in an .mdx page renders.
+  markdown: { gfm: true },
   integrations: [
     starlight({
       title: 'HDS — Agents',

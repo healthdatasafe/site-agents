@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Tables render again** (2026-11-17): Astro 6.4 leaves `markdown.gfm` undefined and `@astrojs/mdx` 5.0.x then skips
+  remark-gfm, so every table in an `.mdx` page (Building apps, Partner services, Connect from Claude.ai / ChatGPT)
+  showed as raw `|` rows. `astro.config.mjs` sets `markdown: { gfm: true }`.
+
+### Changed
+- **Connect & permissions** (2026-11-17): the shipped-app request is built from the app's item keys with
+  `model.authorizations.forItemKeys` (with `defaultLevel` and `preRequest`) instead of a hand-written list of roots;
+  the grant-time provisioning caveat is narrowed to streams the model does not know.
+- **`llms-full.txt`** (2026-11-17): the browser and CLI hello examples load the model first and build their request
+  with `forItemKeys`; the §7 root note says the consent screen creates model streams in their tree on the first grant
+  and on an update (app-web-user-account since 2026-10-03), and only custom roots stay initial-grant only.
+
 ### Added
 - **No-account problem reports** (2026-11-13): the Feedback page, the `agent-problem` template and `llms-full.txt`
   say that `report_problem` opens an HDS review page (`issues.hds.ngo`) where the person checks and sends the
