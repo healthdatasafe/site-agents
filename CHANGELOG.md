@@ -25,6 +25,11 @@
   and on an update (app-web-user-account since 2026-10-03), and only custom roots stay initial-grant only.
 
 ### Added
+- **MCP 0.24.0 `attach_file`** (2026-11-17, site-agents#36): `llms-full.txt` §4a lists it (local server only) and
+  says how the local server stores a document's original file (create the `file/xds-v1` event, then `attach_file`);
+  §4a-remote, §6 and §7 match (the connector stores values only; new error rows). Connect from Claude.ai / ChatGPT,
+  Install and Connect & permissions no longer say documents cannot be stored or that the MCP reads no file. The §4a
+  tool catalogue also gains `report_problem` and `open_account`, which it had missed.
 - **Runnable examples** (2026-11-17): Building apps and `llms-full.txt` point at
   `healthdatasafe/dev-examples` (`weight-quickstart`).
 - **No-account problem reports** (2026-11-13): the Feedback page, the `agent-problem` template and `llms-full.txt`

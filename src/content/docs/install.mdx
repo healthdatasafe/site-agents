@@ -17,7 +17,9 @@ description: Requirements and client configuration for the HDS MCP server (hds-m
 :::caution[Prerequisite for file flows]
 For scenarios like "process a folder of documents", your agent client must
 also provide **filesystem access** and **vision / OCR**. The HDS MCP does not
-ship file I/O or OCR — those are delegated to the client's other tools. Check
+read your folders or do OCR — those are delegated to the client's other tools.
+Its one file read is `attach_file`: it stores the original of a document
+(a PDF, JPEG or PNG you name by its full path) in your HDS account. Check
 your client's docs for how to enable filesystem access; in Claude Desktop it
 ships built-in but is off by default.
 :::
