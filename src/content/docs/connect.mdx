@@ -92,7 +92,8 @@ note).
   production and enable writing"*. The agent connects with
   `enableWrites: true` and you confirm on the consent screen; the unlock
   lasts until you quit the client. Without your explicit ask,
-  `create_event` and `import_batch` refuse on production. Reads
+  `create_event`, `import_batch` and the other write tools refuse on
+  production. Reads
   (`list_streams`, `get_events`, `search_items`, `get_item`) work on
   production unconditionally.
 - **Your agent's provider sees what it reads.** Every record, scan or value

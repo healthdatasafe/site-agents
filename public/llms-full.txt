@@ -8,7 +8,9 @@ AI agent helping a user with HDS, read this once at session start.
 Canonical URL: https://agents.datasafe.dev/llms-full.txt
 (moved 2026-06-11 from docs.datasafe.dev/developers/llms-full.txt — update
 your pointers; the old URL serves a redirect note)
-Last updated: 2026-11-05 (§4a-remote: the remote connector for Claude.ai,
+Last updated: 2026-11-17 (§4a: `attach_file`, the local MCP stores the
+original file of a document; §4a-remote and §7 to match.
+2026-11-05: §4a-remote: the remote connector for Claude.ai,
 ChatGPT and Claude Code, per production region, and raw mode.
 2026-11-04: §4a tool catalogue no longer labelled with a
 version; agent index at /llms.txt.
@@ -426,8 +428,8 @@ point at the built output instead (`npm install` builds it):
 `list_streams`, `get_events`, `search_items`, `get_item`,
 `get_event_type`, `list_model_streams`, `list_datasources`,
 `search_dataset`, `create_event`, `import_batch`, `ensure_streams`,
-`update_event`, `delete_events`, `get_connection`, `get_import_guide`,
-`report_missing_item`. (Naming: tool names are these bare strings; prose like
+`update_event`, `delete_events`, `attach_file` (local server only),
+`get_connection`, `get_import_guide`, `report_missing_item`, `report_problem`, `open_account`. (Naming: tool names are these bare strings; prose like
 `hds.connect` just prefixes the server alias from the client config —
 `"hds"` in the snippet above.) Defaults: `connect` targets the `demo`
 host and, without `roots`, requests every data-model root (genetics left
@@ -437,8 +439,8 @@ production; `level: "read"` for a read-only session. Since v0.4.0,
 `roots: [{ streamId, level? }]` scopes the access to those root streams
 (default level `manage`, named from the data model, no `*`) and
 `importName` signs in as the import's own app access
-`hds-mcp-<importName>`: use both for any import (§ 5f). `create_event` and `import_batch` refuse on
-production unless the session was opened with
+`hds-mcp-<importName>`: use both for any import (§ 5f). `create_event`, `import_batch` and the
+other write tools (`attach_file` included) refuse on production unless the session was opened with
 `connect({ host: "prod", enableWrites: true })` — pass `enableWrites`
 ONLY when the user explicitly asked to write to their real production
 account, never on your own initiative.
@@ -481,12 +483,28 @@ data-model version. `create_event` and `import_batch` take optional
 data-model conventions: `sourceKey` / `related` from § 5f, `hdsTimePrecision`
 for partial dates, `hdsRefRange` / `hdsFlag` / `hdsComparator` for lab
 values as printed). Content is checked against the eventType schema
-**before** writing: an unknown type, invalid content, or a type that needs
-an attachment (`file/xds-v1`, `*/attached`; not uploadable through the MCP
-yet) is refused with nothing written, and one bad event refuses the whole
-batch. `import_batch` returns the created event ids **in input order**
-(`null` where the core refused one), so sources can be written first and
-later events can cite them.
+**before** writing: an unknown type or invalid content is refused with
+nothing written, and one bad event refuses the whole batch. `import_batch`
+returns the created event ids **in input order** (`null` where the core
+refused one), so sources can be written first and later events can cite
+them. A type that needs an attachment (`file/xds-v1`, `*/attached`) is
+never written by `import_batch`; on the local server `create_event` and
+`update_event` accept `file/xds-v1` (content checked against its schema),
+the remote connector refuses it.
+
+**Original documents (since v0.24.0, local server only).** `attach_file({
+eventId, path })` stores the original file of a medical document. Create
+the document event first with `create_event` (item `document`, type
+`file/xds-v1`, content schema from `get_event_type`), then call
+`attach_file` with its id and the absolute path of a file the person named
+and asked to keep. The event must be readable, not trashed, with no file
+yet. The file is a PDF, JPEG or PNG, checked from its content (the
+extension must agree), up to 20 MB. Only the file name is sent, never the
+folder path, and the file's content is not returned to the model. Same
+production-write gate as `create_event`. A document event left without its
+file shows as a failed import: attach again or delete it. Conventions:
+data-model
+[DOCUMENTS.md](https://github.com/healthdatasafe/data-model/blob/main/documentation/DOCUMENTS.md).
 
 Full per-tool descriptions, error shapes, itemDef-first priming rules,
 and extension guide live in
@@ -550,6 +568,8 @@ separately. The person can revoke the connector from their HDS account.
   (created by HDS apps); a write to a missing stream is refused by the platform
   with nothing written. An import that needs new streams uses the local
   server (§4a) or raw mode below.
+- No `attach_file`: a hosted server reads no file on the person's computer,
+  and `create_event` refuses `file/xds-v1` (see Files below).
 - Every other tool is the same as in §4a, with the same validation and errors.
 
 **Raw mode (no client ID).** For clients that cannot do the connector OAuth,
@@ -581,9 +601,9 @@ is filed until they press Send.
 
 **Files.** The model reads what the person attaches in the chat (a PDF, a
 photo, a spreadsheet) and the assistant records the values it extracts as
-structured events (§3, §5f). The original documents themselves cannot be
-stored in HDS yet: there is no attachment upload through the MCP. Tell the
-person so before they expect their PDFs to be kept.
+structured events (§3, §5f). The connector cannot store the original
+documents: it stores values only. The local server can (§4a, `attach_file`).
+Tell the person so before they expect their PDFs to be kept.
 
 **Privacy.** Same rule as everywhere (§6): everything the assistant reads goes
 to its model provider. The server's instructions repeat this; say it before
@@ -1469,8 +1489,9 @@ Printed lab ranges and flags: `documentation/BLOOD-CHEMISTRY.md`
   403 `invalid-access-token`); on failure clear the stored value and fall
   back to sign-in. Validating on restore also avoids a stale cookie showing
   a deceptive "signed-in" state.
-- **Prod writes are a per-session user opt-in.** `create_event` and
-  `import_batch` refuse on production unless the session was opened with
+- **Prod writes are a per-session user opt-in.** `create_event`,
+  `import_batch` and the other write tools (`attach_file` included) refuse
+  on production unless the session was opened with
   `connect({ host: "prod", enableWrites: true })`. Agents: pass
   `enableWrites` only when the user explicitly asked to write to their
   production account — the user then confirms on the consent screen. The
@@ -1509,7 +1530,7 @@ Printed lab ranges and flags: `documentation/BLOOD-CHEMISTRY.md`
 
 ## 7. Error shapes
 
-### MCP errors (verbatim, as of v0.4.0)
+### MCP errors (verbatim, as of v0.24.0)
 
 | Trigger                                       | Message                                                                                  |
 |-----------------------------------------------|------------------------------------------------------------------------------------------|
@@ -1525,7 +1546,11 @@ Printed lab ranges and flags: `documentation/BLOOD-CHEMISTRY.md`
 | `create_event`: type or content invalid       | ``Event refused, nothing written: <problems>``                                           |
 | `import_batch`: any event invalid             | ``Batch refused, nothing written: N problem(s).`` then one ``- [index] <problem>`` line each |
 | Problem: type not in the data model           | ``Unknown event type "X": not in the HDS data model (data-model <version>). Use the eventType from get_item.`` |
-| Problem: type needs an attachment             | ``Event type "X" needs an attachment, which this MCP cannot upload yet.``                |
+| Problem: type needs an attachment             | ``Event type "X" needs an attachment, which this MCP cannot upload yet.`` (remote connector) |
+| Same, `import_batch` on the local server      | ``Event type "X" needs an attachment: create it with create_event, then add its file with attach_file.`` |
+| `attach_file`: path, file or type refused     | ``File refused, nothing written: <why>``, naming the file name only (relative path, symbolic link, folder, not found, larger than 20 MB, not a PDF/JPEG/PNG, extension disagreeing) |
+| `attach_file`: event refused                  | ``Attachment refused, nothing written: event <id> <is of type "X" / already has an attachment / is in the trash>`` |
+| `attach_file` on the remote connector         | ``attach_file is only available on the local (stdio) HDS MCP: the hosted connector reads no file on your computer.`` |
 | Problem: content does not match the schema    | ``content<path> <message> (<params>)``, e.g. ``content must be number ({"type":"number"})`` |
 | `get_event_type`: unknown type                | ``No HDS event type "X" in data-model <version>. Use search_items to find the item, then its eventType.`` |
 | `list_model_streams`: unknown parent          | ``No stream "X" in the HDS data model (data-model <version>).``                          |
