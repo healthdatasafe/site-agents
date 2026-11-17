@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Fixed
+- **No more backloop.dev** (2026-11-17): it was discontinued on 2026-09-04 and its public certificate no longer
+  works. Building apps, `llms-full.txt` §4b, §4b-i, §5b and the links table now say what was verified on demo the same
+  day: `npm run dev` on `http://localhost` is enough for hds-lib sign-in; another hostname needs a locally trusted
+  certificate (mkcert). §4b-i no longer claims sign-in refuses `http://` (only `file://` fails).
+- **`eventTemplate()` on items with variations** (2026-11-17): every `body-weight` example passes
+  `{ eventType: 'mass/kg' }`; hds-lib throws without it. The "picks the first variation" wording is gone.
 - **Tables render again** (2026-11-17): Astro 6.4 leaves `markdown.gfm` undefined and `@astrojs/mdx` 5.0.x then skips
   remark-gfm, so every table in an `.mdx` page (Building apps, Partner services, Connect from Claude.ai / ChatGPT)
   showed as raw `|` rows. `astro.config.mjs` sets `markdown: { gfm: true }`.
@@ -16,6 +22,8 @@
   and on an update (app-web-user-account since 2026-10-03), and only custom roots stay initial-grant only.
 
 ### Added
+- **Runnable examples** (2026-11-17): Building apps and `llms-full.txt` point at
+  `healthdatasafe/dev-examples` (`weight-quickstart`).
 - **No-account problem reports** (2026-11-13): the Feedback page, the `agent-problem` template and `llms-full.txt`
   say that `report_problem` opens an HDS review page (`issues.hds.ngo`) where the person checks and sends the
   report, no GitHub account needed; GitHub stays the second route, with a warning that its issues are public.

@@ -24,17 +24,24 @@ npm install
 npm install git+https://github.com/healthdatasafe/hds-lib-js.git
 ```
 
-Then `import * as HDSLib from 'hds-lib'` in your code.
+Then `import * as HDSLib from 'hds-lib'` in your code, and `npm run dev`:
+the sign-in works on `http://localhost:5173` as is, no HTTPS setup needed
+while developing.
+
+**Fastest start:** clone the `weight-quickstart` example from
+[`healthdatasafe/dev-examples`](https://github.com/healthdatasafe/dev-examples):
+sign-in button with a demo/prod switch, a form that stores a weight, and the
+list of stored weights, in about 100 lines.
 
 :::caution[Do not load `hds-lib.js` from a CDN script tag]
 The `hds-lib` sign-in button runs sign-in **inside your page**, so a plain
 HTML file at `file://` cannot complete it. The gh-pages bundle at
 `healthdatasafe.github.io/hds-lib-js/hds-lib.js` exists for the project's
 own demo pages — it is **not** a supported consumer entry point. Always
-`npm install` + bundle, and front the dev server with
-[`backloop.dev`](https://backloop.dev) for HTTPS (see the
-[`llms-full.txt`](/llms-full.txt) "Developing with Claude Code" section for
-the full recipe).
+`npm install` + bundle and run a dev server on `localhost`. A page served
+on any other hostname needs HTTPS (a locally trusted certificate, e.g.
+[mkcert](https://github.com/FiloSottile/mkcert)); `backloop.dev` was
+discontinued in 2026 and no longer works.
 
 This applies to **this** flow. If you are integrating from a non-JS backend,
 the auth-request + server-side key-exchange flow imposes nothing on your
@@ -81,8 +88,8 @@ const model = HDSLib.getHDSModel();
 
 // PROVISION — one idempotent call creates every stream the items need (streams don't auto-vivify):
 await HDSLib.toolkit.StreamsAutoCreate.attachToConnection(connection).ensureExistsForItems(APP_ITEM_KEYS);
-// WRITE — event shape from the item, never hand-written:
-const tmpl = model.itemsDefs.forKey('body-weight').eventTemplate();   // { streamIds, type }
+// WRITE — event shape from the item, never hand-written (body-weight comes in kg or lb: name the unit):
+const tmpl = model.itemsDefs.forKey('body-weight').eventTemplate({ eventType: 'mass/kg' });   // { streamIds, type }
 // READ — derive the events.get `streams` filter from the same set:
 const streamIds = model.streams.getNecessaryListForItems(APP_ITEM_KEYS, { knowExistingStreamsIds: [] }).map(s => s.id);
 ```
@@ -125,7 +132,7 @@ A few exports an agent building on `hds-lib` will reach for often:
 
 - `toolkit.StreamsAutoCreate.attachToConnection(conn).ensureExistsForItems(itemKeys)` — provisions every stream a set of items needs (parents first, idempotent) in one call. **Use this instead of any hand-written stream tree.**
 - `getHDSModel().streams.getNecessaryListForItems(itemKeys, { knowExistingStreamsIds })` — the lower-level primitive: the raw `streams.create` payloads, if you need them (e.g. to derive a read filter).
-- `getHDSModel().itemsDefs.forKey(key).eventTemplate()` — `{ streamIds, type }` for an item's write; picks the first variation automatically.
+- `getHDSModel().itemsDefs.forKey(key).eventTemplate({ eventType })` — `{ streamIds, type }` for an item's write. `eventType` is required for an item with variations (e.g. `body-weight`: `mass/kg` or `mass/lb`), which throws rather than guess the stored unit; omit it for a single-type item.
 - `eventToShortText(event)` — shared formatter for displaying events as `"60 Kg"` / `"Aspirin · 100mg"` / etc.
 - `MonitorScope` — progressive event loading + WebSocket subscribe; use for live timelines and dashboards.
 - `computeReminders(item, source)` — "what's due now" computation.
