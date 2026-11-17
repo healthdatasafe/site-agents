@@ -138,7 +138,8 @@ work on your real account, say so explicitly — e.g. <em>“sign me in to
 production and enable writing”</em>. The agent connects with
 <code dir="auto">enableWrites: true</code> and you confirm on the consent screen; the unlock
 lasts until you quit the client. Without your explicit ask,
-<code dir="auto">create_event</code> and <code dir="auto">import_batch</code> refuse on production. Reads
+<code dir="auto">create_event</code>, <code dir="auto">import_batch</code> and the other write tools refuse on
+production. Reads
 (<code dir="auto">list_streams</code>, <code dir="auto">get_events</code>, <code dir="auto">search_items</code>, <code dir="auto">get_item</code>) work on
 production unconditionally.</li>
 <li><strong>Your agent’s provider sees what it reads.</strong> Every record, scan or value
