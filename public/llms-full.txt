@@ -1620,6 +1620,15 @@ local writer that follows §5f. A packaged import kit is planned
   stop at any point. `bootstrap.txt` step 4 has the plain-language version.
   `search_dataset` also sends its search text (a condition or drug name)
   to the HDS datasets service; say so when the text names theirs.
+- **Terminology lookups: codes only to third parties.** Never search a
+  test, diagnosis or drug name from the user's records on the web or on a
+  terminology server (tx.fhir.org, loinc.org, a SNOMED CT browser): the
+  name leaves with their network address. Look codes up locally first
+  (`search_items` on the local MCP matches codes and labels against the
+  pack on their computer); a code the record prints may be checked on a
+  terminology server by the code alone (`CodeSystem/$lookup`), and it
+  still names the test. No code found: store it uncoded where the model
+  allows, never guess one. Data-model `documentation/TERMINOLOGY.md`.
 - **Token scrubbing (MCP only).** All log, error, and telemetry paths in
   the MCP run through a scrubber that redacts the token portion of any
   apiEndpoint URL (`https://TOKEN@host` → `https://***@host`). `hds-lib`
