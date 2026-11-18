@@ -8,9 +8,10 @@ AI agent helping a user with HDS, read this once at session start.
 Canonical URL: https://agents.datasafe.dev/llms-full.txt
 (moved 2026-06-11 from docs.datasafe.dev/developers/llms-full.txt — update
 your pointers; the old URL serves a redirect note)
-Last updated: 2026-11-18 (§5g: importing a person's medical files:
-sources, scanning, local OCR, splitting manifest, document kinds and
-dates, best version, identifiers, measured extraction.
+Last updated: 2026-11-18 (§4a: `list_document_kinds`, and `get_events`
+`documentUniqueId` used in §5g step 6 (MCP v0.25.0). §5g: importing a
+person's medical files: sources, scanning, local OCR, splitting manifest,
+document kinds and dates, best version, identifiers, measured extraction.
 2026-11-17: §4a: `attach_file`, the local MCP stores the
 original file of a document; §4a-remote and §7 to match.
 2026-11-05: §4a-remote: the remote connector for Claude.ai,
@@ -430,7 +431,7 @@ point at the built output instead (`npm install` builds it):
 **Tool catalogue (local stdio server; the runtime list is in `src/server.ts`):** `connect`,
 `list_streams`, `get_events`, `search_items`, `get_item`,
 `get_event_type`, `list_model_streams`, `list_datasources`,
-`search_dataset`, `create_event`, `import_batch`, `ensure_streams`,
+`list_document_kinds`, `search_dataset`, `create_event`, `import_batch`, `ensure_streams`,
 `update_event`, `delete_events`, `attach_file` (local server only),
 `get_connection`, `get_import_guide`, `report_missing_item`, `report_problem`, `open_account`. (Naming: tool names are these bare strings; prose like
 `hds.connect` just prefixes the server alias from the client config —
@@ -478,6 +479,11 @@ content (`content.condition`, `content.drug`, `content.regimen`).
 `search_dataset` sends its search text to the HDS datasets service of the
 connected platform (demo when not connected); the lists are curated and
 incomplete, so a miss is reported, never filled with an invented code.
+`list_document_kinds` (since v0.25.0) lists the kinds of medical document
+(data-model 4.17.0 `documentKinds`, from the Swiss EPR value sets). Each
+kind says when to pick it and which printed date is its event time;
+`list_document_kinds({ key })` returns its `class` and `type` Codings to copy
+into a `file/xds-v1` document.
 
 **Writing (since v0.2.0).** `get_item` returns the item's eventType (or its
 unit choices) with the **content schema** of each eventType and the
@@ -1511,7 +1517,8 @@ local OCR produces stays on the machine until you read it.
    not theirs, what to drop, a document you could not place.
 5. **Classify and date each document.**
    - **Kind:** pick one from the pack's `documentKinds` (data-model 4.17.0,
-     45 kinds, from the Swiss EPR value sets) by its `description`, and copy
+     45 kinds, from the Swiss EPR value sets; MCP `list_document_kinds`,
+     hds-lib `model.documentKinds`) by its `description`, and copy
      its `class` and `type` Codings into the `file/xds-v1` content as they
      are. When nothing fits, use the class's `other-…` kind or `other`;
      never make up a code.
@@ -1538,9 +1545,9 @@ local OCR produces stays on the machine until you read it.
      Letters from one practice look alike, and OCR changes the words. Use
      its `uniqueId` from the record export: before creating it, look it up by
      `clientData.hdsDocumentUniqueId` (DOCUMENTS.md, "A document already
-     held"). A program filters `events.get` on it. The MCP's `get_events`
-     does not filter on it yet: read the `documents` stream with
-     `state: 'all'` and compare `content.uniqueId`. Without an identifier,
+     held"). A program filters `events.get` on it. Through the MCP (since
+     v0.25.0): `get_events({ documentUniqueId, state: 'all' })`, with the
+     XDS `uniqueId` or the FHIR `masterIdentifier` as found. Without an identifier,
      use the file hash, then the date + kind + author, and let the code
      propose matches for you to confirm. Ask the person when unsure.
 7. **Extract values, and measure before trusting.** Lab values, medication
