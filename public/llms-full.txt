@@ -8,7 +8,10 @@ AI agent helping a user with HDS, read this once at session start.
 Canonical URL: https://agents.datasafe.dev/llms-full.txt
 (moved 2026-06-11 from docs.datasafe.dev/developers/llms-full.txt — update
 your pointers; the old URL serves a redirect note)
-Last updated: 2026-11-17 (§4a: `attach_file`, the local MCP stores the
+Last updated: 2026-11-18 (§5g: importing a person's medical files:
+sources, scanning, local OCR, splitting manifest, document kinds and
+dates, best version, identifiers, measured extraction.
+2026-11-17: §4a: `attach_file`, the local MCP stores the
 original file of a document; §4a-remote and §7 to match.
 2026-11-05: §4a-remote: the remote connector for Claude.ai,
 ChatGPT and Claude Code, per production region, and raw mode.
@@ -1465,6 +1468,105 @@ Dates known only to the month or the year: data-model
 `documentation/PARTIAL-DATES.md` (`clientData.hdsTimePrecision`).
 Printed lab ranges and flags: `documentation/BLOOD-CHEMISTRY.md`
 (`clientData.hdsRefRange`, `hdsFlag`, `hdsInterpretation`).
+
+### 5g. Importing a person's medical files
+
+For an import of a person's own files: paper scans, a patient-record
+export, loose PDFs, photos. §5f is the contract every write follows; this
+section is the work before the writes. The MCP's per-record guides
+(`get_import_guide`: `lab-report`, `letter`, `photo`, …) say how to write
+each value. From site-agents#36 (a real archive imported this way).
+
+**Privacy first (§6).** Reading a page sends it to your model provider.
+Say so before the first page, and prefer local tools for everything that
+does not need you to read: hashing, OCR, page counts, checks. Text that
+local OCR produces stays on the machine until you read it.
+
+1. **Gather, best source first.** Ask the person what they have and help
+   them get it; you cannot find their records for them.
+   - **A patient-record export** (an EPR or a hospital portal) comes first:
+     native PDFs with a structured header (CDA / XDS metadata) that gives
+     each document's kind, dates, author and identifier (`uniqueId`).
+   - **Native PDFs** (lab portals, e-mailed reports): text, no OCR.
+   - **App exports**: `get_import_guide({ topic: 'app-export' })`.
+   - **Paper**, scanned last: only what exists in no other form.
+   - Drop exact duplicates by file hash (sha256) before anything is read.
+     Ask which files are medical, and whose: a pile of paper can hold
+     another person's pages.
+2. **Scanning advice for the person.** 300 dpi, colour or greyscale (stamps
+   and highlighted values matter), every page including the backs that
+   carry text, one batch per pile, kept in the pile's order. A phone scan
+   app is fine; a photo taken at an angle is not.
+3. **Text: local OCR.** Run OCR on the machine, with the document's
+   languages (German, French, Italian, English for Swiss records), on
+   image pages only; a native PDF already has its text. Quality depends on
+   the layout: lab tables often need a second pass cell by cell. Measure it
+   on the documents themselves (step 7), never assume it.
+4. **Split with a manifest.** A scan batch holds many documents, and one
+   letter can be spread across batches. You read the pages and propose a
+   manifest: for each document, its pages (batch + page numbers), kind,
+   date, title, and the pages to drop (blank, someone else's, not
+   medical). Code then checks that every page is assigned exactly once,
+   kept or dropped. The person reviews the edge cases only: pages that are
+   not theirs, what to drop, a document you could not place.
+5. **Classify and date each document.**
+   - **Kind:** pick one from the pack's `documentKinds` (data-model 4.17.0,
+     45 kinds, from the Swiss EPR value sets) by its `description`, and copy
+     its `class` and `type` Codings into the `file/xds-v1` content as they
+     are. When nothing fits, use the class's `other-…` kind or `other`;
+     never make up a code.
+   - **Date:** the kind's `timeBasis` says which printed date becomes the
+     event time: `service` (the care reported: the sample, the
+     examination, the visit; for a stay, the day it ended) or `creation`
+     (the date it was written or signed). Only a date from the document's
+     body counts, never the fax header, the scan, print or upload date.
+     A date with no hour is 12:00 UTC with `hdsTimePrecision: "day"`.
+     Printed dates can be wrong: check them against the content. No date
+     at all: ask the person.
+   - Rules: data-model DOCUMENTS.md, sections "Document kinds" and "Which
+     date is a document's date".
+6. **One document, one event: pick the best version.** Many scanned
+   documents also exist as native copies, and a report can come provisional
+   and then final.
+   - **Order:** final over provisional, native over scan, original over
+     fax.
+   - **Store the best copy.** Keep every other copy traceable in your
+     manifest (which copy was kept, and why), not as more events.
+   - **A corrected or final version** of a document already stored is a new
+     event that lists the old one in `supersedes`.
+   - **Recognise a document by identifiers, not by text similarity.**
+     Letters from one practice look alike, and OCR changes the words. Use
+     its `uniqueId` from the record export: before creating it, look it up by
+     `clientData.hdsDocumentUniqueId` (DOCUMENTS.md, "A document already
+     held"). A program filters `events.get` on it. The MCP's `get_events`
+     does not filter on it yet: read the `documents` stream with
+     `state: 'all'` and compare `content.uniqueId`. Without an identifier,
+     use the file hash, then the date + kind + author, and let the code
+     propose matches for you to confirm. Ask the person when unsure.
+7. **Extract values, and measure before trusting.** Lab values, medication
+   mentions, vitals, providers: each per its `get_import_guide` topic.
+   - Values read from scans are checked against documents held twice
+     (scanned and native): extract both and compare.
+   - Agree the acceptable error rate with the person before measuring, not
+     after.
+   - A parser built for one layout is measured on that layout.
+   - Below the threshold, the person reviews those values, or they are left
+     out.
+8. **Review with the person, then write per §5f.** Before the go, show
+   counts per kind of data, a few examples next to their source page, and
+   what is left out and why. Ask one question at a time, with a proposed
+   default.
+   - **Write:** sources (documents, providers, visits) first, then the
+     values that cite them.
+   - **Read back** and compare with the manifest.
+
+**Through the MCP.** The local MCP stores a document's file
+(`create_event` with `file/xds-v1`, then `attach_file`, §4a). The remote
+connector stores values only: the person keeps the files. A whole archive
+(thousands of values, hundreds of MB of PDFs) does not fit through the
+chat. Build it as a package on the person's machine and send it with a
+local writer that follows §5f. A packaged import kit is planned
+(site-agents#36 A4/A5).
 
 ---
 
