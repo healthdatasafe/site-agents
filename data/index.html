@@ -129,6 +129,14 @@ model:
 <a href="https://github.com/healthdatasafe/data-model/blob/main/documentation/PARTIAL-DATES.md">PARTIAL-DATES.md</a>
 and
 <a href="https://github.com/healthdatasafe/data-model/blob/main/documentation/BLOOD-CHEMISTRY.md">BLOOD-CHEMISTRY.md</a>.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="importing-your-medical-files">Importing your medical files</h2><a class="sl-anchor-link" href="#importing-your-medical-files"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore>Section titled “Importing your medical files”</span></a></div>
+<p>Paper scans, a patient-record export, loose PDFs: the agent splits the
+files into documents and picks the best copy of each. It classifies every
+document with the data model’s document kinds and dates it from its body,
+never from the fax or upload date. It shows you the edge cases and the
+results before anything is written. OCR and checks can run on your
+computer, but every page the agent reads goes to its model provider. Steps
+in <a href="/llms-full.txt">llms-full.txt §5g</a>.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="worked-pilot--fertility-charts-folder--hds">Worked pilot — fertility-charts folder → HDS</h2><a class="sl-anchor-link" href="#worked-pilot--fertility-charts-folder--hds"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore>Section titled “Worked pilot — fertility-charts folder → HDS”</span></a></div>
 <p>You drop a folder of Excel sheets and scanned paper from fertility charting
 into your machine and ask your agent to upload it to a demo HDS account.</p>
