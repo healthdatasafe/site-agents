@@ -85,6 +85,16 @@ model:
 and
 [BLOOD-CHEMISTRY.md](https://github.com/healthdatasafe/data-model/blob/main/documentation/BLOOD-CHEMISTRY.md).
 
+## Importing your medical files
+
+Paper scans, a patient-record export, loose PDFs: the agent splits the
+files into documents and picks the best copy of each. It classifies every
+document with the data model's document kinds and dates it from its body,
+never from the fax or upload date. It shows you the edge cases and the
+results before anything is written. OCR and checks can run on your
+computer, but every page the agent reads goes to its model provider. Steps
+in [llms-full.txt §5g](/llms-full.txt).
+
 ## Worked pilot — fertility-charts folder → HDS
 
 You drop a folder of Excel sheets and scanned paper from fertility charting
