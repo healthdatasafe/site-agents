@@ -407,7 +407,12 @@ Auth: Pryv poll-mode OAuth (no callback URL needed). For Claude.ai,
 ChatGPT and Claude Code without installing anything, use the remote
 connector instead (§4a-remote).
 
-**Install in Claude Desktop.** Installs straight from GitHub via `npx` —
+**Install in Claude Desktop, one click:** the extension
+`hds-mcp-<version>.mcpb` from https://github.com/healthdatasafe/hds-mcp-js/releases/latest (double-click
+it, or Settings → Extensions). No Node.js needed. It also turns on the
+import tools (`HDS_MCP_IMPORT=true`, §5g "Through the MCP").
+
+**Install by hand.** Installs straight from GitHub via `npx` —
 no clone needed (the npm-registry name `hds-mcp` is not claimed yet):
 
 ```json
@@ -433,7 +438,9 @@ point at the built output instead (`npm install` builds it):
 `get_event_type`, `list_model_streams`, `list_datasources`,
 `list_document_kinds`, `search_dataset`, `create_event`, `import_batch`, `ensure_streams`,
 `update_event`, `delete_events`, `attach_file` (local server only),
-`get_connection`, `get_import_guide`, `report_missing_item`, `report_problem`, `open_account`. (Naming: tool names are these bare strings; prose like
+`get_connection`, `get_import_guide`, `report_missing_item`, `report_problem`, `open_account`; with
+`HDS_MCP_IMPORT=true` (the extension), `import_inspect`, `import_review`, `import_write`,
+`import_status`, `import_verify`, `import_cleanup` (local server only, §5g). (Naming: tool names are these bare strings; prose like
 `hds.connect` just prefixes the server alias from the client config —
 `"hds"` in the snippet above.) Defaults: `connect` targets the `demo`
 host and, without `roots`, requests every data-model root (genetics left
@@ -1429,9 +1436,8 @@ removable (one query finds it all).
    does 2 and 3; `ensure_streams` creates the item streams;
    `get_events({ sourceKeyPrefix, state: 'all' })` is the read in 5;
    `update_event` updates in place; `delete_events({ sourceKeyPrefix })`
-   is 6, previewed first. A large archive is still better built as a
-   package and sent by a local writer than passed through the model's
-   output, site-agents#36.)
+   is 6, previewed first. A large archive goes as a package through the
+   import tools instead of the model's output: §5g "Through the MCP".)
 4. **Write sources first, then the events that cite them.** A document,
    a provider or an encounter is written before the values read from it,
    because the citing event needs the source's event id
@@ -1571,9 +1577,31 @@ local OCR produces stays on the machine until you read it.
 (`create_event` with `file/xds-v1`, then `attach_file`, §4a). The remote
 connector stores values only: the person keeps the files. A whole archive
 (thousands of values, hundreds of MB of PDFs) does not fit through the
-chat. Build it as a package on the person's machine and send it with a
-local writer that follows §5f. A packaged import kit is planned
-(site-agents#36 A4/A5).
+chat. Build it as a package on the person's machine; the local MCP's
+import tools (the Claude Desktop extension, or `HDS_MCP_IMPORT=true`)
+check it, show it and write it with §5f:
+
+- **Package:** a folder with `manifest.json`
+  (`{ "format": "hds-import-package/1", "importName", "tool" }`, `tool` = the
+  sourceKey prefix), `events.jsonl` (one event per line: `sourceKey`,
+  `itemKey` or `streamIds` + `type`, `content`, `time` required, optional
+  `duration`, `description`, `clientData` (not `sourceKey` or `related`:
+  the kit sets them), `relatedKeys`, `attachment` `"files/<name>"`,
+  `evidence` `{ file, page }` for the review only) and `files/`. Where an
+  event id of the package is expected (`supersedes`, `authors[].eventId`,
+  `encounterId`), write `{ "$ref": "<sourceKey>" }`.
+- **`import_inspect`** checks every line on the data model and answers with
+  counts, the roots and `importName` for `connect`, and problems by line
+  number, never values. **`import_review`** opens a page in the person's
+  browser with every value next to its source page: they check it there.
+- **`import_write`** (`confirm: true`, only after their go) runs in the
+  background (`import_status`): it reads the account first, creates the
+  missing streams, writes sources first, updates only what changed, leaves
+  trashed events, uploads documents' files, links a document already held
+  under its identifier, and never deletes. Running it again resumes
+  without duplicates. **`import_verify`** reads it back;
+  **`import_cleanup`** deletes the review page. The package folder stays a
+  copy of the records on the computer: tell the person.
 
 ---
 

@@ -25,6 +25,11 @@
   and on an update (app-web-user-account since 2026-10-03), and only custom roots stay initial-grant only.
 
 ### Added
+- **Import kit and one-click extension, MCP 0.26.0** (2026-11-19, plan 130, site-agents#36 A4/A5): the landing page
+  answers "Connector or local server?"; the install page leads with the Claude Desktop extension
+  (`hds-mcp-<version>.mcpb` on the hds-mcp-js release); `bootstrap.txt` says when to use the local server;
+  `llms-full.txt` § 4a lists the six `import_*` tools (local server only, behind `HDS_MCP_IMPORT=true`), § 5f.3 and
+  § 5g describe importing a package of records after a review page in the browser.
 - **MCP 0.24.0 `attach_file`** (2026-11-17, site-agents#36): `llms-full.txt` §4a lists it (local server only) and
   says how the local server stores a document's original file (create the `file/xds-v1` event, then `attach_file`);
   §4a-remote, §6 and §7 match (the connector stores values only; new error rows). Connect from Claude.ai / ChatGPT,
