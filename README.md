@@ -37,3 +37,8 @@ npm run deploy   # build + push to gh-pages (from a clean main checkout)
 
 Built with [Astro](https://astro.build) + [Starlight](https://starlight.astro.build),
 same design as [dev-site](https://github.com/healthdatasafe/dev-site).
+
+
+## License
+
+[PolyForm Shield 1.0.0](LICENSE): you may use, copy and adapt this material, including in paid work with or for Health Data Safe, but not to provide a product that competes with Health Data Safe. See [NOTICE](NOTICE) for the parts under other terms.

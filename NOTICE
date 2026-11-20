@@ -1,0 +1,21 @@
+site-agents (agents.datasafe.dev): notices
+
+The documentation and code of this repository are licensed under the PolyForm Shield License 1.0.0 (see LICENSE),
+with the exceptions below.
+
+Code samples and agent instructions
+
+Code samples, configuration snippets and prompt or instruction text meant to be pasted into an AI agent are also
+licensed under the BSD 3-Clause License, so you can use them freely in your own setup:
+
+  Copyright (c) 2026, Health Data Safe (https://www.healthdatasafe.org). Licensed under the BSD 3-Clause License,
+  https://opensource.org/license/bsd-3-clause
+
+Name and logos
+
+The Health Data Safe and HDS names and logos are not licensed by either licence. All rights reserved.
+
+Third-party material
+
+Third-party product names (Claude, ChatGPT, Cursor and others), standards and terminologies cited here remain the
+property of their owners.
