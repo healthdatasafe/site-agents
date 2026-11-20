@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+- **Licence: PolyForm Shield 1.0.0** (2026-11-20, plan 132): the documentation is under PolyForm Shield 1.0.0, with
+  the competitor definition in `NOTICE`. Code samples, configuration snippets and agent instructions are also
+  BSD-3-Clause.
+
 ### Fixed
 - **`StreamsAutoCreate.ensureExistsForItems` needs hds-lib 2.54.2** (2026-11-17, B-2026-11-17-1): earlier releases
   threw `forbidden` for an app whose access covers only some model streams (`forItemKeys`), because they asked to
