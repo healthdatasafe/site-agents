@@ -3,6 +3,16 @@ site-agents (agents.datasafe.dev): notices
 The documentation and code of this repository are licensed under the PolyForm Shield License 1.0.0 (see LICENSE),
 with the exceptions below.
 
+Additional permission: who counts as a competitor
+
+In applying the Noncompete of the PolyForm Shield License, Health Data Safe treats as competing only a service, run
+by anyone other than Health Data Safe (a company, a non-profit or a public body), that offers people or organisations
+the hosting and sharing of personal health data as a substitute for the Health Data Safe platform. The following are
+not competing, whoever the client is:
+- applications, bridges and integrations that run on or connect to Health Data Safe;
+- advisory, audit, integration, implementation and compliance services.
+For any other use you are unsure about, ask Health Data Safe: contact@healthdatasafe.org.
+
 Code samples and agent instructions
 
 Code samples, configuration snippets and prompt or instruction text meant to be pasted into an AI agent are also
