@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Added
+- **Allergy reactions** (2026-11-21, plan 133): §4a names the `manifestation` dataset (data-model 4.23.0); a
+  reaction's manifestations come from it, else as `{ text }`; copy a search entry as `search_dataset` returns it.
 - **Allergies** (2026-11-20, plan 133): `llms-full.txt` §4a names the `allergen` dataset and the `allergy-coded` /
   `allergy-basic` rules (status required, never defaulted; no `confirmed` by default), with hds-mcp's import guide.
   The item categories list is brought up to date with data-model 4.21.0.
