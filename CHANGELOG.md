@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+- **Allergies** (2026-11-20, plan 133): `llms-full.txt` §4a names the `allergen` dataset and the `allergy-coded` /
+  `allergy-basic` rules (status required, never defaulted; no `confirmed` by default), with hds-mcp's import guide.
+  The item categories list is brought up to date with data-model 4.21.0.
+
 ### Changed
 - **Licence: PolyForm Shield 1.0.0** (2026-11-20, plan 132): the documentation is under PolyForm Shield 1.0.0, with
   the competitor definition in `NOTICE`. Code samples, configuration snippets and agent instructions are also
