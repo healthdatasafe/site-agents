@@ -8,7 +8,9 @@ AI agent helping a user with HDS, read this once at session start.
 Canonical URL: https://agents.datasafe.dev/llms-full.txt
 (moved 2026-06-11 from docs.datasafe.dev/developers/llms-full.txt — update
 your pointers; the old URL serves a redirect note)
-Last updated: 2026-11-18 (§4a: `list_document_kinds`, and `get_events`
+Last updated: 2026-11-20 (§4a: the `allergen` dataset and the allergy
+items, data-model 4.21.0; item categories brought up to date).
+2026-11-18: §4a: `list_document_kinds`, and `get_events`
 `documentUniqueId` used in §5g step 6 (MCP v0.25.0). §5g: importing a
 person's medical files: sources, scanning, local OCR, splitting manifest,
 document kinds and dates, best version, identifiers, measured extraction.
@@ -108,9 +110,11 @@ display metadata per type (localised name + unit symbol, e.g.
 
 One YAML file per category in `data-model/definitions/items/`:
 
-`activity`, `body`, `body-skin`, `body-vulva`, `family`, `fertility`,
-`function` (ICF/EQ-5D), `medication`, `nutrition`, `procedure`, `profile`,
-`symptom`, `treatment`, `wellbeing`.
+`activity`, `allergy`, `body`, `body-skin`, `body-vulva`, `condition`,
+`consents`, `documents`, `encounter`, `family`, `fertility`, `finding`,
+`function` (ICF/EQ-5D), `genetics`, `lifestyle`, `medication`, `nutrition`,
+`procedure`, `profile`, `questionnaire`, `symptom`, `symptom-domains`,
+`sync-status`, `treatment`, `wellbeing`.
 
 ### Item pack — the machine-readable manifest
 
@@ -480,9 +484,13 @@ content schema, unit and the items using it. `list_model_streams` browses
 the model's stream tree (the consent units) with the items per stream;
 `list_streams` remains the user's account. `list_datasources` and
 `search_dataset` look up coded entries (condition, finding, medication,
-procedure, treatment) for the `*-coded` items: copy the chosen entry's
-`label`, `description` and `codes` unchanged into the coded property of the
-content (`content.condition`, `content.drug`, `content.regimen`).
+procedure, treatment, allergen) for the `*-coded` items: copy the chosen
+entry's `label`, `description` and `codes` unchanged into the coded property
+of the content (`content.condition`, `content.drug`, `content.regimen`,
+`content.allergen`). Allergies (`allergy-coded`, else `allergy-basic` by
+name): `content.status` is required and never defaulted, and
+`verificationStatus` is never `confirmed` unless the source says so;
+`get_import_guide` topic `letter` has the rules.
 `search_dataset` sends its search text to the HDS datasets service of the
 connected platform (demo when not connected); the lists are curated and
 incomplete, so a miss is reported, never filled with an invented code.
