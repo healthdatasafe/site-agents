@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Added
+- **No known allergy** (2026-11-22, plan 133): §4a says a "no known allergies" statement (NKA, NKDA, no known drug,
+  food or environmental allergies) is the `allergy-none-known` item, with its scope, the time it was stated and no
+  allergen beside it; a no-known animal, insect or latex allergy is not written. Matches hds-mcp's `letter` and
+  `app-export` guides.
 - **Allergy reactions** (2026-11-21, plan 133): §4a names the `manifestation` dataset (data-model 4.23.0); a
   reaction's manifestations come from it, else as `{ text }`; copy a search entry as `search_dataset` returns it.
 - **Allergies** (2026-11-20, plan 133): `llms-full.txt` §4a names the `allergen` dataset and the `allergy-coded` /
