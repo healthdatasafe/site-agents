@@ -8,8 +8,9 @@ AI agent helping a user with HDS, read this once at session start.
 Canonical URL: https://agents.datasafe.dev/llms-full.txt
 (moved 2026-06-11 from docs.datasafe.dev/developers/llms-full.txt — update
 your pointers; the old URL serves a redirect note)
-Last updated: 2026-11-22 (§4a: "no known allergies" as the
-`allergy-none-known` item).
+Last updated: 2026-11-27 (§4a, §5g: a document is written on `documents`
+only; filing it in a class is the person's, in their HDS app; MCP v0.29.0).
+2026-11-22: §4a: "no known allergies" as the `allergy-none-known` item.
 2026-11-21: §4a: the `manifestation` dataset for allergy reactions,
 data-model 4.23.0.
 2026-11-20: §4a: the `allergen` dataset and the allergy items, data-model
@@ -510,7 +511,8 @@ incomplete, so a miss is reported, never filled with an invented code.
 (data-model 4.17.0 `documentKinds`, from the Swiss EPR value sets). Each
 kind says when to pick it and which printed date is its event time;
 `list_document_kinds({ key })` returns its `class` and `type` Codings to copy
-into a `file/xds-v1` document.
+into a `file/xds-v1` document, and says which class the person can file it
+in, in their HDS app.
 
 **Writing (since v0.2.0).** `get_item` returns the item's eventType (or its
 unit choices) with the **content schema** of each eventType and the
@@ -533,8 +535,12 @@ eventId, path })` stores the original file of a medical document. Create
 the document event first with `create_event` (item `document`, type
 `file/xds-v1`, content schema from `get_event_type`), then call
 `attach_file` with its id and the absolute path of a file the person named
-and asked to keep. The event must be readable, not trashed, with no file
-yet. The file is a PDF, JPEG or PNG, checked from its content (the
+and asked to keep. The event goes on `["documents"]` alone: since v0.29.0
+`create_event` refuses `documents-clinical`, `documents-admin`, the other
+class streams (data-model 4.35.0) and any share. Filing a document in a
+class decides who it is shared with, so the person does it in their HDS
+app; the result says which class fits its kind. The event must be
+readable, not trashed, with no file yet. The file is a PDF, JPEG or PNG, checked from its content (the
 extension must agree), up to 20 MB. Only the file name is sent, never the
 folder path, and the file's content is not returned to the model. Same
 production-write gate as `create_event`. A document event left without its
@@ -1548,6 +1554,10 @@ local OCR produces stays on the machine until you read it.
      its `class` and `type` Codings into the `file/xds-v1` content as they
      are. When nothing fits, use the class's `other-…` kind or `other`;
      never make up a code.
+   - **Stream:** `documents`, never a class below it (`documents-clinical`,
+     `documents-admin`). Filing is the person's, in their HDS app: it
+     decides who the document is shared with. Data-model DOCUMENTS.md
+     § Filing: every writer other than their app writes on the root.
    - **Date:** the kind's `timeBasis` says which printed date becomes the
      event time: `service` (the care reported: the sample, the
      examination, the visit; for a stay, the day it ended) or `creation`
@@ -1556,8 +1566,8 @@ local OCR produces stays on the machine until you read it.
      A date with no hour is 12:00 UTC with `hdsTimePrecision: "day"`.
      Printed dates can be wrong: check them against the content. No date
      at all: ask the person.
-   - Rules: data-model DOCUMENTS.md, sections "Document kinds" and "Which
-     date is a document's date".
+   - Rules: data-model DOCUMENTS.md, sections "Document kinds", "Filing"
+     and "Which date is a document's date".
 6. **One document, one event: pick the best version.** Many scanned
    documents also exist as native copies, and a report can come provisional
    and then final.
@@ -1609,7 +1619,11 @@ check it, show it and write it with §5f:
   the kit sets them), `relatedKeys`, `attachment` `"files/<name>"`,
   `evidence` `{ file, page }` for the review only) and `files/`. Where an
   event id of the package is expected (`supersedes`, `authors[].eventId`,
-  `encounterId`), write `{ "$ref": "<sourceKey>" }`.
+  `encounterId`), write `{ "$ref": "<sourceKey>" }`. A document goes in
+  with `itemKey: "document"` (stream `documents`, not filed; `streamIds`
+  below it are refused, `document-not-on-root`). Once written,
+  its streams are the person's (they file and share it in their HDS app),
+  so a re-run never moves it (since v0.29.0).
 - **`import_inspect`** checks every line on the data model and answers with
   counts, the roots and `importName` for `connect`, and problems by line
   number, never values. **`import_review`** opens a page in the person's
@@ -1710,6 +1724,7 @@ check it, show it and write it with §5f:
 | Pryv batch error                              | ``Pryv batch failed: <upstream message>``                                                |
 | Item key not found in pack.json               | ``No HDS item found for key "X".`` (with optional ``Did you mean one of: ...?`` hint)    |
 | `create_event`: type or content invalid       | ``Event refused, nothing written: <problems>``                                           |
+| `create_event`: a document not on `["documents"]` alone | ``… a new document is written on stream "documents" alone, not on "X": filing and sharing it are the person's, in their HDS app`` |
 | `import_batch`: any event invalid             | ``Batch refused, nothing written: N problem(s).`` then one ``- [index] <problem>`` line each |
 | Problem: type not in the data model           | ``Unknown event type "X": not in the HDS data model (data-model <version>). Use the eventType from get_item.`` |
 | Problem: type needs an attachment             | ``Event type "X" needs an attachment, which this MCP cannot upload yet.`` (remote connector) |
