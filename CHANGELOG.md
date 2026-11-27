@@ -23,6 +23,11 @@
   BSD-3-Clause.
 
 ### Fixed
+- **Build warnings** (2026-11-27): Starlight 0.40 (Astro 6.4's markdown processor API) replaces 0.38, which set the
+  deprecated `markdown.remarkPlugins`; the deprecated `markdown.gfm` is dropped (the default processor enables GFM,
+  @astrojs/mdx 6 inherits it); the 404 page is `src/pages/404.astro` with `disable404Route`, so the build no longer
+  warns `Entry docs → 404 was not found`. Same rendered pages.
+- **`deploy.sh` checks dist/ is on `gh-pages`** (2026-11-27), as dev-site's does, and quotes `$(dirname "$0")`.
 - **`StreamsAutoCreate.ensureExistsForItems` needs hds-lib 2.54.2** (2026-11-17, B-2026-11-17-1): earlier releases
   threw `forbidden` for an app whose access covers only some model streams (`forItemKeys`), because they asked to
   create parents the access cannot see. Building apps § Helpful exports and `llms-full.txt` §3 say so.

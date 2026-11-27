@@ -5,12 +5,14 @@ import starlight from '@astrojs/starlight';
 export default defineConfig({
   site: 'https://agents.datasafe.dev',
   base: '/',
-  // Astro 6.4 leaves `markdown.gfm` undefined by default, and @astrojs/mdx 5.0.x only adds
-  // remark-gfm when it is truthy: without this, no table in an .mdx page renders.
-  markdown: { gfm: true },
+  // No `markdown.gfm` (deprecated in Astro 6.4): the default `unified()` processor enables GFM, and
+  // @astrojs/mdx 6 inherits it. (mdx 5.0.x did not, and .mdx tables stopped rendering.)
   integrations: [
     starlight({
       title: 'HDS — Agents',
+      // Our own src/pages/404.astro: Starlight's injected 404 route looks up a `docs/404` entry and
+      // warns when there is none, while a docs/404.md entry collides with the `[...slug]` route.
+      disable404Route: true,
       tableOfContents: false,
       pagination: false,
       logo: {

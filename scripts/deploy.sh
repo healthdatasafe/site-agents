@@ -2,7 +2,7 @@
 # Deploy to gh-pages.
 set -euo pipefail
 
-scriptsFolder=$(cd $(dirname "$0"); pwd)
+scriptsFolder=$(cd "$(dirname "$0")"; pwd)
 cd "$scriptsFolder/.."
 
 MAIN_BRANCH="main"
@@ -35,6 +35,16 @@ if [ ! -e dist/.git ]; then
   echo "dist/ is not a gh-pages checkout (a local build wipes it): re-cloning gh-pages..."
   rm -rf dist
   git clone -q -b gh-pages git@github.com:healthdatasafe/site-agents.git dist
+fi
+
+# Belt-and-suspenders: dist/ must be ON the gh-pages branch, not just any
+# git checkout. If dist/ was accidentally reset to a different branch (e.g.
+# via a misplaced `git reset --hard` run in the wrong cwd), refuse to publish.
+DIST_BRANCH="$(git -C dist branch --show-current)"
+if [ "$DIST_BRANCH" != "gh-pages" ]; then
+  echo "ERROR: dist/ is on branch '$DIST_BRANCH', expected 'gh-pages'. Refusing to deploy."
+  echo "       Recover with: 'rm -rf dist && bash scripts/setup.sh'."
+  exit 1
 fi
 
 COMMIT_SHORT="$(git rev-parse --short HEAD)"
