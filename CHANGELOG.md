@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Added
+- **Documents on the root** (2026-11-27, plan 144): §4a and §5g say a document is written on `["documents"]` alone,
+  never on a class stream below it (data-model 4.35.0 `documents-clinical`, `documents-admin`) or a share: filing and
+  sharing are the person's, in their HDS app (DOCUMENTS.md § Filing). A re-run of the import kit never moves a
+  document. Matches hds-mcp 0.29.0.
 - **No known allergy** (2026-11-22, plan 133): §4a says a "no known allergies" statement (NKA, NKDA, no known drug,
   food or environmental allergies) is the `allergy-none-known` item, with its scope, the time it was stated and no
   allergen beside it; a no-known animal, insect or latex allergy is not written. Matches hds-mcp's `letter` and
