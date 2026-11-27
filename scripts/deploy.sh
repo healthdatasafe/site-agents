@@ -41,12 +41,6 @@ COMMIT_SHORT="$(git rev-parse --short HEAD)"
 COMMIT_FULL="$(git rev-parse HEAD)"
 echo "Deploying commit $COMMIT_SHORT ..."
 
-echo "Building..."
-# Preserve dist/.git during build (Astro wipes dist/). Per-run folder, restored
-# on any exit, so a failed check or build never strands it.
-GIT_STASH="$(mktemp -d)"
-mv dist/.git "$GIT_STASH/git"
-trap '[ -e "$GIT_STASH/git" ] && mkdir -p dist && rm -rf dist/.git && mv "$GIT_STASH/git" dist/.git; rm -rf "$GIT_STASH"' EXIT
 # Refuse to build against a node_modules that does not match package-lock.json.
 # A dependency bump pulled from git but never `npm install`ed produces a bundle
 # linked against the OLD library while the source expects the new one - lint,
@@ -91,6 +85,19 @@ if [ ! -f "$LINK_GUARD" ]; then
   exit 1
 fi
 node "$LINK_GUARD" .
+
+# Start from the published gh-pages tip: another session may have deployed since this checkout
+# last synced, and publishing on a stale tip is rejected by the push (seen 2026-09-25).
+# Done after the checks above, so a refused deploy leaves dist/ untouched.
+git -C dist fetch -q origin gh-pages
+git -C dist reset -q --hard origin/gh-pages
+
+echo "Building..."
+# Preserve dist/.git during build (Astro wipes dist/). Per-run folder, restored
+# on any exit, so a failed check or build never strands it.
+GIT_STASH="$(mktemp -d)"
+mv dist/.git "$GIT_STASH/git"
+trap '[ -e "$GIT_STASH/git" ] && mkdir -p dist && rm -rf dist/.git && mv "$GIT_STASH/git" dist/.git; rm -rf "$GIT_STASH"' EXIT
 
 
 npm run build
