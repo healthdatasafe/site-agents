@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-scriptsFolder=$(cd $(dirname "$0"); pwd)
+scriptsFolder=$(cd "$(dirname "$0")"; pwd)
 cd "$scriptsFolder/.."
 
 hash git 2>&- || { echo >&2 "I require git."; exit 1; }
